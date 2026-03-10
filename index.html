@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>MehhServerManager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ══ MAIN APP ════════════════════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- Titlebar -->
+  <div class="titlebar">
+    <div class="titlebar-drag"><span class="tb-logo">⛏ MehhServerManager</span></div>
+    <div class="titlebar-btns">
+      <button class="tb-btn" id="tb-min">─</button>
+      <button class="tb-btn" id="tb-max">□</button>
+      <button class="tb-btn tb-close" id="tb-close">✕</button>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="srv-badge" id="srv-badge">
+        <span class="sdot" id="sdot"></span>
+        <span id="slabel">Offline</span>
+      </div>
+      <ul class="nav-list">
+        <li class="nav-item active" data-tab="dashboard"><span class="ni">🖥</span><span>Dashboard</span></li>
+        <li class="nav-item"        data-tab="properties"><span class="ni">⚙</span><span>Properties</span></li>
+        <li class="nav-item"        data-tab="mods">      <span class="ni">📦</span><span>Mods / Plugins</span></li>
+        <li class="nav-item"        data-tab="download-mods">    <span class="ni">⬇</span><span>Download Mods</span></li>
+        <li class="nav-item"        data-tab="download-plugins"> <span class="ni">🔌</span><span>Download Plugins</span></li>
+        <li class="nav-item"        data-tab="players">   <span class="ni">👥</span><span>Players</span><span class="nav-badge" id="player-badge" style="display:none">0</span></li>
+        <li class="nav-item"        data-tab="console">   <span class="ni">💻</span><span>Console</span></li>
+        <li class="nav-item"        data-tab="tunnels">   <span class="ni">🌐</span><span>Tunnels</span></li>
+        <li class="nav-item"        data-tab="files">     <span class="ni">📁</span><span>Files</span></li>
+      </ul>
+      <div class="sidebar-footer">
+        <button class="sidebar-footer-btn" id="nav-servers-btn">
+          <span class="ni">🗂</span><span>Manage Servers</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Content -->
+    <main class="content">
+
+      <!-- ── DASHBOARD ──────────────────────────────────────────── -->
+      <div id="tab-dashboard" class="tab active">
+        <div class="ph">
+          <h1 class="ptitle">Dashboard</h1>
+          <div class="srv-ctrl" id="dash-server-ctrl">
+            <button class="btn btn-success" id="btn-start">▶ Start</button>
+            <button class="btn btn-danger"  id="btn-stop"    style="display:none">■ Stop</button>
+            <button class="btn btn-warn"    id="btn-restart" style="display:none">↺ Restart</button>
+          </div>
+        </div>
+
+        <!-- Server Setup Wizard — shown on first launch or when adding a server -->
+        <div id="setup-inline" style="display:none">
+          <div class="wizard-wrap">
+
+            <!-- Step: choose action (shown when no servers exist) -->
+            <div id="ws-pick" class="ws-section">
+              <div class="ws-logo">⛏ MehhServerManager</div>
+              <h2 class="ws-title">Welcome! Set up your first server.</h2>
+              <p class="ws-sub">Create a brand-new server or import an existing one from your PC.</p>
+              <div class="ws-choice-row">
+                <div class="ws-choice-card" id="ws-choose-create">
+                  <div class="ws-choice-icon">🆕</div>
+                  <div class="ws-choice-title">Create New Server</div>
+                  <div class="ws-choice-desc">Download Paper, Fabric, Forge, Purpur or Vanilla automatically</div>
+                </div>
+                <div class="ws-choice-card" id="ws-choose-import">
+                  <div class="ws-choice-icon">📂</div>
+                  <div class="ws-choice-title">Import Existing Server</div>
+                  <div class="ws-choice-desc">Copy your existing server folder into the app</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step: Create form -->
+            <div id="ws-create" class="ws-section" style="display:none">
+              <button class="ws-back" id="ws-create-back">← Back</button>
+              <h2 class="ws-title">Create New Server</h2>
+              <div class="ws-form">
+                <label class="form-label">Server Name</label>
+                <input type="text" id="ws-name" class="form-input" placeholder="My Minecraft Server" maxlength="48">
+
+                <label class="form-label" style="margin-top:16px">Server Type</label>
+                <div class="loader-grid">
+                  <div class="loader-card selected" data-loader="paper"><span>📄</span><span>Paper</span></div>
+                  <div class="loader-card" data-loader="purpur"><span>🟣</span><span>Purpur</span></div>
+                  <div class="loader-card" data-loader="fabric"><span>🧵</span><span>Fabric</span></div>
+                  <div class="loader-card" data-loader="forge"><span>⚒</span><span>Forge</span></div>
+                  <div class="loader-card" data-loader="vanilla"><span>🌿</span><span>Vanilla</span></div>
+                </div>
+
+                <label class="form-label" style="margin-top:16px">Minecraft Version</label>
+                <select id="ws-version" class="form-input form-select">
+                  <option value="">Loading versions…</option>
+                </select>
+                <span class="form-hint" id="ws-version-hint"></span>
+
+                <label class="form-label" style="margin-top:16px">RAM</label>
+                <div class="row-gap" style="align-items:center">
+                  <input type="number" id="ws-ram" class="form-input" value="2" min="1" max="64" style="max-width:90px">
+                  <span style="color:var(--t2);font-size:13px">GB</span>
+                </div>
+
+                <button class="btn btn-primary ws-submit-btn" id="ws-create-confirm" style="margin-top:24px" disabled>
+                  ⬇ Create &amp; Download Server
+                </button>
+              </div>
+            </div>
+
+            <!-- Step: Import form -->
+            <div id="ws-import" class="ws-section" style="display:none">
+              <button class="ws-back" id="ws-import-back">← Back</button>
+              <h2 class="ws-title">Import Existing Server</h2>
+              <div class="ws-form">
+                <label class="form-label">Server Folder</label>
+                <div class="row-gap">
+                  <input type="text" id="ws-import-folder" class="form-input" readonly placeholder="Click Browse to select your server folder…">
+                  <button class="btn btn-secondary" id="ws-import-browse">Browse…</button>
+                </div>
+                <div id="ws-import-folder-msg" class="setup-msg" style="margin-top:6px"></div>
+
+                <label class="form-label" style="margin-top:16px">Server Name</label>
+                <input type="text" id="ws-import-name" class="form-input" placeholder="My Server" maxlength="48">
+
+                <label class="form-label" style="margin-top:16px">Server JAR</label>
+                <select id="ws-import-jar" class="form-input form-select">
+                  <option value="server.jar">server.jar</option>
+                </select>
+
+                <label class="form-label" style="margin-top:16px">RAM</label>
+                <div class="row-gap" style="align-items:center">
+                  <input type="number" id="ws-import-ram" class="form-input" value="2" min="1" max="64" style="max-width:90px">
+                  <span style="color:var(--t2);font-size:13px">GB</span>
+                </div>
+
+                <button class="btn btn-primary ws-submit-btn" id="ws-import-confirm" style="margin-top:24px" disabled>
+                  📂 Import Server
+                </button>
+              </div>
+            </div>
+
+            <!-- Step: Download / copy progress -->
+            <div id="ws-progress" class="ws-section" style="display:none">
+              <div class="ws-logo">⛏</div>
+              <h2 class="ws-title" id="ws-progress-title">Setting up server…</h2>
+              <div class="ws-progress-wrap">
+                <div class="ws-progress-bar" id="ws-progress-bar" style="width:0%"></div>
+              </div>
+              <div class="ws-progress-pct" id="ws-progress-pct">0%</div>
+              <div class="ws-progress-msg" id="ws-progress-msg">Initializing…</div>
+              <div class="ws-progress-log" id="ws-progress-log"></div>
+            </div>
+
+          </div>
+        </div>
+        <!-- Main dashboard content — hidden until configured -->
+        <div id="dash-main" style="display:none">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">Status</div>
+              <div class="stat-val" id="d-status">Offline</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Players Online</div>
+              <div class="stat-val" id="d-players">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">RAM Usage</div>
+              <div class="stat-val" id="d-ram">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">CPU Usage</div>
+              <div class="stat-val" id="d-cpu">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Uptime</div>
+              <div class="stat-val" id="d-uptime">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">World Folder Size</div>
+              <div class="stat-val" id="d-disk">—</div>
+            </div>
+          </div>
+
+          <div class="quick-settings card">
+            <div class="card-hdr">Quick Settings</div>
+            <div class="qs-body">
+              <div class="qs-row">
+                <label class="qs-label">Max RAM</label>
+                <div class="qs-ctrl">
+                  <input type="number" id="qs-ram" class="form-input qs-in" min="1" max="256" placeholder="4" title="GB">
+                  <span class="qs-unit">GB</span>
+                  <button class="btn btn-secondary btn-sm" id="qs-ram-save">Apply</button>
+                </div>
+                <span class="qs-hint" id="qs-ram-hint"></span>
+              </div>
+              <div class="qs-row">
+                <label class="qs-label">Active Server</label>
+                <div class="qs-ctrl">
+                  <input type="text" id="qs-server-name" class="form-input qs-in qs-folder-in" readonly placeholder="—">
+                  <span class="qs-server-type" id="qs-server-type"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="dash-bottom">
+            <div class="card">
+              <div class="card-hdr">Recent Console</div>
+              <div class="mini-con" id="mini-con"></div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">Online Players</div>
+              <div class="mini-players" id="mini-players"><div class="empty">No players online</div></div>
+            </div>
+          </div>
+
+          <!-- Watermark -->
+          <div class="dash-watermark">app developed by Shuuphe for Playit.gg tunnel/Vpn/portforwarding</div>
+        </div>
+      </div>
+
+      <!-- ── PROPERTIES ─────────────────────────────────────────── -->
+      <div id="tab-properties" class="tab">
+        <div class="ph">
+          <h1 class="ptitle">Server Properties</h1>
+          <button class="btn btn-primary" id="props-save">💾 Save</button>
+        </div>
+        <div id="props-saved-msg" class="save-notice" style="display:none">✓ Saved! Restart server for changes to apply.</div>
+        <div class="tab-scroll">
+          <div class="props-grid" id="props-grid"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- ── MODS ───────────────────────────────────────────────── -->
+      <div id="tab-mods" class="tab">
+        <div class="ph">
+          <h1 class="ptitle" id="mods-title">Mods / Plugins</h1>
+          <button class="btn btn-primary" id="mods-add">+ Add JAR</button>
+        </div>
+        <div class="tab-scroll">
+          <div class="drop-zone" id="drop-zone">
+            <div class="drop-hint">⬇ Drop .jar files here to install</div>
+            <div id="mods-list"><div class="empty">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DOWNLOAD MODS ─────────────────────────────────────── -->
+      <div id="tab-download-mods" class="tab">
+        <div class="ph">
+          <h1 class="ptitle">Download Mods</h1>
+          <span class="srv-type-badge" id="dl-mods-badge"></span>
+        </div>
+        <div class="dl-toolbar">
+          <input class="form-input dl-search-input" id="dl-mods-search" placeholder="Search mods… (leave empty for popular)" autocomplete="off" spellcheck="false">
+          <div class="dl-src-tabs">
+            <button class="dl-src-btn active" data-src="modrinth" id="dl-mods-src-modrinth">Modrinth</button>
+          </div>
+        </div>
+        <div class="tab-scroll" style="padding-top:8px">
+          <div id="dl-mods-status"></div>
+          <div id="dl-mods-results" class="dl-results-grid"></div>
+        </div>
+      </div>
+
+      <!-- ── DOWNLOAD PLUGINS ───────────────────────────────────── -->
+      <div id="tab-download-plugins" class="tab">
+        <div class="ph">
+          <h1 class="ptitle">Download Plugins</h1>
+          <span class="srv-type-badge" id="dl-plugins-badge"></span>
+        </div>
+        <div class="dl-toolbar">
+          <input class="form-input dl-search-input" id="dl-plugins-search" placeholder="Search plugins… (leave empty for popular)" autocomplete="off" spellcheck="false">
+          <div class="dl-src-tabs">
+            <button class="dl-src-btn active" data-src="modrinth" id="dl-plugins-src-modrinth">Modrinth</button>
+          </div>
+        </div>
+        <div class="tab-scroll" style="padding-top:8px">
+          <div id="dl-plugins-status"></div>
+          <div id="dl-plugins-results" class="dl-results-grid"></div>
+        </div>
+      </div>
+
+      <!-- ── PLAYERS ────────────────────────────────────────────── -->
+      <div id="tab-players" class="tab">
+        <div class="ph">
+          <h1 class="ptitle">Players</h1>
+          <span style="color:var(--t2);font-size:14px"><span id="pc">0</span> online</span>
+        </div>
+        <div class="tab-scroll">
+          <div id="players-list"><div class="empty large">No players online</div></div>
+        </div>
+      </div>
+
+      <!-- ── CONSOLE ────────────────────────────────────────────── -->
+      <div id="tab-console" class="tab console-tab">
+        <div class="ph">
+          <h1 class="ptitle">Console</h1>
+          <div style="display:flex;align-items:center;gap:12px">
+            <button class="btn btn-secondary btn-sm" id="con-clear">Clear</button>
+            <button class="btn btn-secondary btn-sm" id="con-scroll-bottom" style="display:none" title="Scroll to bottom">⬇ Bottom</button>
+          </div>
+        </div>
+        <div class="con-wrap">
+          <div class="con-out" id="con-out"></div>
+          <div class="con-row">
+            <span class="con-prompt">&gt;</span>
+            <input class="con-in" id="con-in" placeholder="Type a command… (Enter to send)" autocomplete="off" spellcheck="false">
+            <button class="btn btn-primary btn-sm" id="con-send">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TUNNELS ────────────────────────────────────────────── -->
+      <div id="tab-tunnels" class="tab">
+        <div class="ph"><h1 class="ptitle">Tunnels</h1></div>
+        <div class="tab-scroll">
+
+          <!-- playit.gg -->
+          <div class="tunnel-card">
+            <div class="tunnel-top">
+              <div class="tunnel-logo">
+                <span style="font-size:32px">🎮</span>
+                <div>
+                  <div class="tunnel-name">playit.gg</div>
+                  <div class="tunnel-desc">Tunnels your server to the internet — for PC &amp; mobile players</div>
+                </div>
+              </div>
+              <div class="tunnel-status-row">
+                <span class="sdot" id="playit-dot"></span>
+                <span id="playit-status">Stopped</span>
+              </div>
+            </div>
+
+            <!-- playit.exe path row -->
+            <div class="playit-path-row">
+              <label class="form-label" style="margin-bottom:4px">playit.exe Location</label>
+              <div class="row-gap">
+                <input id="playit-path-input" class="form-input" type="text" placeholder="Auto-detected from server folder or browse…" readonly>
+                <button class="btn btn-secondary btn-sm" id="playit-browse-btn">Browse…</button>
+              </div>
+              <span class="form-hint" id="playit-path-hint"></span>
+            </div>
+
+            <div id="playit-addr-box" style="display:none" class="addr-box">
+              <div class="addr-label">Players connect to:</div>
+              <div class="addr-val" id="playit-addr">—</div>
+              <div class="addr-hint">Share this address with anyone who wants to join your server</div>
+            </div>
+
+            <div class="tunnel-actions">
+              <button class="btn btn-success" id="playit-start">▶ Start playit.gg</button>
+              <button class="btn btn-danger"  id="playit-stop" style="display:none">■ Stop</button>
+            </div>
+
+            <div class="card-hdr" style="margin-top:16px">playit.gg Console Output</div>
+            <div class="playit-con" id="playit-con">
+              <div class="empty">playit.gg output will appear here once started</div>
+            </div>
+
+            <div class="tunnel-note">
+              <strong>Setup:</strong> Download <code>playit.exe</code> from
+              <a href="#" id="playit-link">playit.gg</a>, place it in your server folder or use Browse above.
+              The tunnel address will appear automatically once started.
+            </div>
+          </div>
+
+          <!-- Other Tunnels -->
+          <div class="tunnel-card" style="margin-top:16px">
+            <div class="tunnel-section-hdr">
+              <div>
+                <div class="tunnel-name" style="font-size:16px">Other Tunnels</div>
+                <div class="tunnel-desc">Add and run other tunnel software (ngrok, Radmin, ZeroTier, etc.)</div>
+              </div>
+              <button class="btn btn-primary btn-sm" id="tunnel-add-btn">+ Add Tunnel</button>
+            </div>
+
+            <div id="custom-tunnels-list">
+              <div class="empty" style="padding:20px 0">No custom tunnels added yet</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── FILES ──────────────────────────────────────────────── -->
+      <div id="tab-files" class="tab">
+        <div class="ph">
+          <h1 class="ptitle">Files</h1>
+          <div class="breadcrumb" id="breadcrumb"></div>
+        </div>
+        <div class="files-toolbar">
+          <button class="btn btn-secondary btn-sm" id="files-up">⬆ Up</button>
+          <button class="btn btn-secondary btn-sm" id="files-refresh">🔄 Refresh</button>
+          <button class="btn btn-secondary btn-sm" id="files-explorer">📂 Open in Explorer</button>
+        </div>
+        <div class="tab-scroll" style="padding:0">
+          <div id="files-grid" style="width:100%"><div class="empty" style="padding:40px">Loading…</div></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ══ BUILT-IN TEXT EDITOR MODAL ═════════════════════════════════════════════ -->
+<div id="editor-overlay" style="display:none">
+  <div class="editor-modal">
+    <div class="editor-hdr">
+      <div class="editor-filepath" id="editor-filepath"></div>
+      <div class="editor-hdr-btns">
+        <button class="btn btn-primary btn-sm" id="editor-save">💾 Save</button>
+        <button class="btn btn-secondary btn-sm" id="editor-close">✕ Close</button>
+      </div>
+    </div>
+    <div class="editor-saved-bar" id="editor-saved-bar" style="display:none">✓ File saved successfully</div>
+    <textarea class="editor-textarea" id="editor-textarea" spellcheck="false" autocomplete="off" autocorrect="off"></textarea>
+    <div class="editor-footer">
+      <span id="editor-line-col">Ln 1, Col 1</span>
+      <span id="editor-char-count"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD TUNNEL MODAL ═══════════════════════════════════════════════════════ -->
+<div id="tunnel-add-overlay" style="display:none">
+  <div class="setup-modal" style="width:480px">
+    <div class="setup-logo">+ Add Tunnel</div>
+    <h2 class="setup-title" style="font-size:18px">Configure Custom Tunnel</h2>
+    <label class="form-label" style="margin-top:14px">Tunnel Name</label>
+    <input id="tnl-name" class="form-input" type="text" placeholder="e.g. ngrok, Radmin VPN…">
+    <label class="form-label" style="margin-top:14px">Executable Path</label>
+    <div class="row-gap">
+      <input id="tnl-exe" class="form-input" type="text" placeholder="Path to executable…" readonly>
+      <button class="btn btn-secondary" id="tnl-browse">Browse…</button>
+    </div>
+    <label class="form-label" style="margin-top:14px">Arguments <span class="opt-lbl">(optional)</span></label>
+    <input id="tnl-args" class="form-input" type="text" placeholder="e.g. http 25565">
+    <label class="form-label" style="margin-top:14px">Post-Launch Command <span class="opt-lbl">(optional — runs 2s after start)</span></label>
+    <input id="tnl-postcmd" class="form-input" type="text" placeholder='e.g. "C:\RadminVPN\RadminVPN.exe" /connect "MyNetwork" "Password"'>
+    <span class="form-hint">For Radmin VPN: enter the full connect command to auto-join your network after launch</span>
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn btn-primary" id="tnl-confirm" style="flex:1;padding:10px" disabled>Add Tunnel</button>
+      <button class="btn btn-secondary" id="tnl-cancel" style="padding:10px 18px">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SERVER MANAGER MODAL ════════════════════════════════════════════════════ -->
+<div id="server-manager-overlay" style="display:none">
+  <div class="sm-modal">
+    <div class="sm-hdr">
+      <span class="sm-title">🗂 Server Manager</span>
+      <button class="sm-close" id="sm-close">✕</button>
+    </div>
+    <div class="sm-body">
+      <div id="sm-server-list"><div class="empty" style="padding:32px">Loading servers…</div></div>
+    </div>
+    <div class="sm-footer">
+      <button class="btn btn-primary btn-sm" id="sm-create-btn">+ Create New Server</button>
+      <button class="btn btn-secondary btn-sm" id="sm-import-btn">📂 Import Existing</button>
+    </div>
+  </div>
+</div>
+
+<script src="renderer.js"></script>
+</body>
+</html>
