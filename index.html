@@ -10,10 +10,8 @@
 </head>
 <body>
 
-<!-- ══ MAIN APP ════════════════════════════════════════════════════════════════ -->
 <div id="app">
 
-  <!-- Titlebar -->
   <div class="titlebar">
     <div class="titlebar-drag"><span class="tb-logo">⛏ MehhServerManager</span></div>
     <div class="titlebar-btns">
@@ -25,7 +23,6 @@
 
   <div class="layout">
 
-    <!-- Sidebar -->
     <nav class="sidebar">
       <div class="srv-badge" id="srv-badge">
         <span class="sdot" id="sdot"></span>
@@ -49,10 +46,8 @@
       </div>
     </nav>
 
-    <!-- Content -->
     <main class="content">
 
-      <!-- ── DASHBOARD ──────────────────────────────────────────── -->
       <div id="tab-dashboard" class="tab active">
         <div class="ph">
           <h1 class="ptitle">Dashboard</h1>
@@ -63,11 +58,9 @@
           </div>
         </div>
 
-        <!-- Server Setup Wizard — shown on first launch or when adding a server -->
         <div id="setup-inline" style="display:none">
           <div class="wizard-wrap">
 
-            <!-- Step: choose action (shown when no servers exist) -->
             <div id="ws-pick" class="ws-section">
               <div class="ws-logo">⛏ MehhServerManager</div>
               <h2 class="ws-title">Welcome! Set up your first server.</h2>
@@ -86,7 +79,6 @@
               </div>
             </div>
 
-            <!-- Step: Create form -->
             <div id="ws-create" class="ws-section" style="display:none">
               <button class="ws-back" id="ws-create-back">← Back</button>
               <h2 class="ws-title">Create New Server</h2>
@@ -121,7 +113,6 @@
               </div>
             </div>
 
-            <!-- Step: Import form -->
             <div id="ws-import" class="ws-section" style="display:none">
               <button class="ws-back" id="ws-import-back">← Back</button>
               <h2 class="ws-title">Import Existing Server</h2>
@@ -153,7 +144,6 @@
               </div>
             </div>
 
-            <!-- Step: Download / copy progress -->
             <div id="ws-progress" class="ws-section" style="display:none">
               <div class="ws-logo">⛏</div>
               <h2 class="ws-title" id="ws-progress-title">Setting up server…</h2>
@@ -167,7 +157,6 @@
 
           </div>
         </div>
-        <!-- Main dashboard content — hidden until configured -->
         <div id="dash-main" style="display:none">
           <div class="stat-grid">
             <div class="stat-card">
@@ -228,12 +217,10 @@
             </div>
           </div>
 
-          <!-- Watermark -->
           <div class="dash-watermark">app developed by Shuuphe for Playit.gg tunnel/Vpn/portforwarding</div>
         </div>
       </div>
 
-      <!-- ── PROPERTIES ─────────────────────────────────────────── -->
       <div id="tab-properties" class="tab">
         <div class="ph">
           <h1 class="ptitle">Server Properties</h1>
@@ -245,7 +232,6 @@
         </div>
       </div>
 
-      <!-- ── MODS ───────────────────────────────────────────────── -->
       <div id="tab-mods" class="tab">
         <div class="ph">
           <h1 class="ptitle" id="mods-title">Mods / Plugins</h1>
@@ -259,7 +245,6 @@
         </div>
       </div>
 
-      <!-- ── DOWNLOAD MODS ─────────────────────────────────────── -->
       <div id="tab-download-mods" class="tab">
         <div class="ph">
           <h1 class="ptitle">Download Mods</h1>
@@ -277,7 +262,6 @@
         </div>
       </div>
 
-      <!-- ── DOWNLOAD PLUGINS ───────────────────────────────────── -->
       <div id="tab-download-plugins" class="tab">
         <div class="ph">
           <h1 class="ptitle">Download Plugins</h1>
@@ -295,7 +279,6 @@
         </div>
       </div>
 
-      <!-- ── PLAYERS ────────────────────────────────────────────── -->
       <div id="tab-players" class="tab">
         <div class="ph">
           <h1 class="ptitle">Players</h1>
@@ -306,7 +289,6 @@
         </div>
       </div>
 
-      <!-- ── CONSOLE ────────────────────────────────────────────── -->
       <div id="tab-console" class="tab console-tab">
         <div class="ph">
           <h1 class="ptitle">Console</h1>
@@ -325,12 +307,10 @@
         </div>
       </div>
 
-      <!-- ── TUNNELS ────────────────────────────────────────────── -->
       <div id="tab-tunnels" class="tab">
         <div class="ph"><h1 class="ptitle">Tunnels</h1></div>
         <div class="tab-scroll">
 
-          <!-- playit.gg -->
           <div class="tunnel-card">
             <div class="tunnel-top">
               <div class="tunnel-logo">
@@ -346,7 +326,6 @@
               </div>
             </div>
 
-            <!-- playit.exe path row -->
             <div class="playit-path-row">
               <label class="form-label" style="margin-bottom:4px">playit.exe Location</label>
               <div class="row-gap">
@@ -379,7 +358,6 @@
             </div>
           </div>
 
-          <!-- Other Tunnels -->
           <div class="tunnel-card" style="margin-top:16px">
             <div class="tunnel-section-hdr">
               <div>
@@ -397,7 +375,6 @@
         </div>
       </div>
 
-      <!-- ── FILES ──────────────────────────────────────────────── -->
       <div id="tab-files" class="tab">
         <div class="ph">
           <h1 class="ptitle">Files</h1>
@@ -419,7 +396,6 @@
 
 <div id="toast"></div>
 
-<!-- ══ BUILT-IN TEXT EDITOR MODAL ═════════════════════════════════════════════ -->
 <div id="editor-overlay" style="display:none">
   <div class="editor-modal">
     <div class="editor-hdr">
@@ -438,7 +414,6 @@
   </div>
 </div>
 
-<!-- ══ ADD TUNNEL MODAL ═══════════════════════════════════════════════════════ -->
 <div id="tunnel-add-overlay" style="display:none">
   <div class="setup-modal" style="width:480px">
     <div class="setup-logo">+ Add Tunnel</div>
@@ -462,7 +437,6 @@
   </div>
 </div>
 
-<!-- ══ SERVER MANAGER MODAL ════════════════════════════════════════════════════ -->
 <div id="server-manager-overlay" style="display:none">
   <div class="sm-modal">
     <div class="sm-hdr">
