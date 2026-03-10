@@ -6,7 +6,6 @@ const { exec, spawn } = require('child_process');
 const https = require('https');
 const http  = require('http');
 
-// Set app name before any getPath() calls so %APPDATA% folder is correct
 app.setName('MehhServerManager');
 
 
@@ -96,14 +95,11 @@ function writeProperties(original, updates) {
   return out.join('\n');
 }
 
-// Strip ANSI escape codes AND Minecraft § color/format codes from player names.
-// Paper/Purpur emit colored console output so captured names can contain junk like
-// \x1b[38;2;255;255;85m or §6 before the actual username.
 function stripPlayerName(s) {
   return s
-    .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')   // ANSI escape sequences
-    .replace(/§[0-9a-fklmnorx]/gi, '')           // §X Minecraft color codes
-    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '')   // other control chars
+    .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')  
+    .replace(/§[0-9a-fklmnorx]/gi, '')          
+    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '')   
     .trim();
 }
 
@@ -226,8 +222,6 @@ function startStatsPolling() {
     const pid = serverProcess ? serverProcess.pid : detachedPid;
     if (!pid) return;
 
-    // If state is stuck at 'stopped' but a pid exists, verify the process is alive
-    // and self-heal the state so the UI reflects reality
     if (serverState === 'stopped') {
       const alive = await isPidAliveJava(pid);
       if (alive) {
@@ -235,7 +229,7 @@ function startStatsPolling() {
         if (!serverStartTime) serverStartTime = Date.now();
         send('server:state', { state: 'running' });
       } else {
-        return; // truly stopped — nothing to poll
+        return; 
       }
     }
 
@@ -262,7 +256,6 @@ function startServer() {
 
   try {
     if (serverConfig.useRunScript) {
-      // Modern Forge — use run.bat / run.sh
       const runBat = path.join(serverFolder, 'run.bat');
       const runSh  = path.join(serverFolder, 'run.sh');
       if (process.platform === 'win32' && fs.existsSync(runBat)) {
@@ -291,8 +284,6 @@ function startServer() {
     for (const rawLine of data.toString('utf8').split('\n')) {
       const line = rawLine.replace(/\r/, '').trim();
       if (!line) continue;
-      // Forge run.bat outputs "Press any key to continue..." after the server stops.
-      // Auto-dismiss it so the process exits cleanly without waiting for user input.
       if (/Press any key to continue/i.test(line)) {
         try { serverProcess && serverProcess.stdin.write('\r\n'); } catch {}
       }
@@ -492,13 +483,11 @@ function scanJars(folder) {
   } catch { return []; }
 }
 
-// ── Server management helpers ──────────────────────────────────────────────
 
 function ensureServersDir() {
   if (!fs.existsSync(SERVERS_DIR)) fs.mkdirSync(SERVERS_DIR, { recursive: true });
 }
 
-// Meta file name — supports both old (.mcdash-meta.json) and new (.server-meta.json) for backward compat
 const META_FILE_NAME = '.server-meta.json';
 const META_FILE_LEGACY = '.mcdash-meta.json';
 
@@ -710,9 +699,6 @@ ipcMain.handle('servers:create', async (_, { name, type, mcVersion, ram }) => {
       await downloadFileTo(info.url, installerPath,
         pct => sendProg(12 + Math.round(pct * 0.38), `Downloading installer: ${pct}%`));
 
-      // ── Library cache: pre-seed the libraries/ folder from any existing Forge server
-      // so the installer skips re-downloading them (mirrors what happens when you run
-      // the installer manually and the folder already exists).
       const FORGE_LIB_CACHE = path.join(app.getPath('userData'), 'forge-lib-cache');
       const destLibs = path.join(folder, 'libraries');
       if (fs.existsSync(FORGE_LIB_CACHE)) {
@@ -729,10 +715,7 @@ ipcMain.handle('servers:create', async (_, { name, type, mcVersion, ram }) => {
 
       sendProg(52, 'Running Forge installer…');
       await new Promise((resolve, reject) => {
-        // Pass full environment so Maven can find its cache at %USERPROFILE%\.m2
-        // Without inheriting env, Electron's stripped environment causes Maven to
-        // re-download every library one-by-one instead of using the local cache.
-        // -Dmaven.artifact.threads=8 enables parallel library downloads.
+
         const proc = spawn('java', [
             '-Djava.net.preferIPv4Stack=true',
             '-Dmaven.artifact.threads=8',
@@ -745,11 +728,9 @@ ipcMain.handle('servers:create', async (_, { name, type, mcVersion, ram }) => {
         proc.on('error', reject);
       });
 
-      // ── Save libraries to cache for next time
       if (fs.existsSync(destLibs)) {
         try {
           if (!fs.existsSync(FORGE_LIB_CACHE)) fs.mkdirSync(FORGE_LIB_CACHE, { recursive: true });
-          // Merge: only copy files that aren't already in the cache
           const copyNewOnly = (src, dest) => {
             for (const e of fs.readdirSync(src, { withFileTypes: true })) {
               const sp = path.join(src, e.name), dp = path.join(dest, e.name);
@@ -762,14 +743,12 @@ ipcMain.handle('servers:create', async (_, { name, type, mcVersion, ram }) => {
         } catch (_) {}
       }
 
-      // Clean up installer
       try { fs.unlinkSync(installerPath); } catch {}
       sendProg(90, 'Finalizing Forge setup…');
-      // Modern Forge (1.17+) uses run.bat / run.sh
       const runBat = path.join(folder, 'run.bat');
       const runSh  = path.join(folder, 'run.sh');
       if (fs.existsSync(runBat) || fs.existsSync(runSh)) {
-        jarName = null; // signals useRunScript
+        jarName = null; 
         const jvmArgsFile = path.join(folder, 'user_jvm_args.txt');
         if (fs.existsSync(jvmArgsFile)) {
           let content = fs.readFileSync(jvmArgsFile, 'utf8');
@@ -777,7 +756,6 @@ ipcMain.handle('servers:create', async (_, { name, type, mcVersion, ram }) => {
           fs.writeFileSync(jvmArgsFile, content);
         }
       } else {
-        // Legacy Forge — find the server jar
         const jars = fs.readdirSync(folder).filter(f => f.startsWith('forge-') && f.endsWith('.jar') && !f.includes('-installer'));
         if (!jars.length) throw new Error('Could not find Forge server jar after installation');
         jarName = jars[0];
@@ -853,7 +831,6 @@ function detectImportedType(folder, jarName) {
     if (m) mcVersion = m[1];
   }
 
-  // Fallback: read version.json if MC version still unknown
   if (mcVersion === 'unknown') {
     const vFile = path.join(folder, 'version.json');
     if (fs.existsSync(vFile)) {
@@ -880,7 +857,6 @@ ipcMain.handle('servers:import', async (_, { sourceFolder, name, jar, ram }) => 
     fs.cpSync(sourceFolder, destFolder, { recursive: true });
     sendProg(90, 'Finalizing…');
 
-    // Ensure eula is accepted
     fs.writeFileSync(path.join(destFolder, 'eula.txt'),
       '#By changing the setting below to TRUE you are indicating your agreement to our EULA\neula=true\n');
 
@@ -964,7 +940,6 @@ ipcMain.handle('servers:switch', (_, { folder }) => {
   return { ok: true, config: newConfig };
 });
 
-// ── End server management helpers ──────────────────────────────────────────
 
 ipcMain.handle('app:get-state', async () => {
   const cfg = loadConfig();
@@ -1029,8 +1004,6 @@ ipcMain.handle('properties:save', (_, updates) => {
 });
 ipcMain.handle('server:start',     ()      => startServer());
 ipcMain.handle('server:stop',      ()      => stopServer());
-// Windows-safe force kill — uses taskkill which flushes JVM file handles
-// before terminating, unlike SIGKILL which can leave locks on log/world files.
 function forceKillProcess(proc, pid) {
   if (process.platform === 'win32') {
     const targetPid = (proc && proc.pid) || pid;
@@ -1049,10 +1022,7 @@ ipcMain.handle('server:restart', async () => {
     await new Promise(resolve => {
       if (serverProcess) {
         serverProcess.once('exit', resolve);
-        // Always try graceful stop — DO NOT force-kill immediately.
-        // Killing forcefully leaves JVM file locks (logs/latest.log, session.lock, world files).
         try { serverProcess.stdin.write('stop\n'); } catch { try { serverProcess.kill('SIGTERM'); } catch {} }
-        // Safety net: only force-kill after 60s (enough for any world save)
         const safetyTimer = setTimeout(() => {
           if (serverProcess) {
             send('console:line', { text: '[MehhServerManager] Force-stopping server after 60s timeout…', type: 'warn' });
@@ -1060,7 +1030,6 @@ ipcMain.handle('server:restart', async () => {
           }
           resolve();
         }, 60000);
-        // Clear timer if server exits normally
         serverProcess.once('exit', () => clearTimeout(safetyTimer));
       } else if (detachedPid) {
         try { process.kill(detachedPid, 'SIGTERM'); } catch {}
@@ -1074,15 +1043,11 @@ ipcMain.handle('server:restart', async () => {
       }
     });
 
-    // Null out all state — exit handler may have already done this
     serverProcess = null;
     detachedPid   = null;
     serverState   = 'stopped';
     clearRuntime();
 
-    // On Windows the JVM releases file handles asynchronously after process exit.
-    // Without this delay the next spawn races against the OS releasing
-    // logs/latest.log, session.lock, level.dat etc.
     const flushDelay = process.platform === 'win32' ? 3000 : 500;
     await new Promise(r => setTimeout(r, flushDelay));
   }
@@ -1165,14 +1130,11 @@ ipcMain.handle('window:close',            ()     => app.quit());
 ipcMain.handle('window:toggle-maximize',  ()     => mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow?.maximize());
 
 
-// ── Mod / Plugin Download Handlers ────────────────────────────────────────────
-
 ipcMain.handle('mods:download-url', async (_, { url, filename }) => {
   if (!serverFolder) return { ok: false, error: 'No server folder configured' };
   const info = listMods(serverFolder);
   const dest = info.path;
   if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-  // Sanitize filename
   const safeName = path.basename(filename).replace(/[/\\:*?"<>|]/g, '_');
   const destPath = path.join(dest, safeName);
   try {
@@ -1221,7 +1183,6 @@ function createWindow() {
     if (response === 0) {
       if (serverProcess) {
         try { serverProcess.stdin.write('stop\n'); } catch { try { serverProcess.kill('SIGTERM'); } catch {} }
-        // Wait up to 15s for graceful stop before force-killing on close
         const maxWait = process.platform === 'win32' ? 15000 : 8000;
         let waited = 0;
         const waitForStop = setInterval(() => {
