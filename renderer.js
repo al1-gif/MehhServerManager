@@ -85,7 +85,6 @@ function switchTab(name) {
     } else if (!S.currentDir) {
       initFiles();
     } else {
-      // Re-render existing dir to catch any new files
       api.filesList(S.currentDir).then(renderFiles);
     }
   }
@@ -915,8 +914,6 @@ document.getElementById('editor-overlay').onclick = e => {
   if (e.target === document.getElementById('editor-overlay'))
     document.getElementById('editor-overlay').style.display = 'none';
 };
-// Re-focus the textarea whenever the user clicks anywhere inside the modal
-// (Electron can lose focus when the server process spawns)
 document.querySelector('#editor-overlay .editor-modal')?.addEventListener('mousedown', e => {
   if (!e.target.closest('button')) {
     setTimeout(() => document.getElementById('editor-textarea').focus(), 0);
@@ -932,7 +929,6 @@ async function initQuickSettings() {
   else if (mxM) document.getElementById('qs-ram').value = Math.round(parseInt(mxM[1]) / 1024);
   document.getElementById('qs-ram-hint').textContent = cfg.javaArgs || '';
 
-  // Update server name display
   const nameEl = document.getElementById('qs-server-name');
   const typeEl = document.getElementById('qs-server-type');
   if (nameEl) nameEl.value = cfg.serverName || cfg.serverFolder?.split(/[/\\]/).pop() || '—';
@@ -953,11 +949,10 @@ document.getElementById('qs-ram-save').onclick = async () => {
   } else toast(r.error, 'err');
 };
 
-// ── Wizard (Server Setup) ──────────────────────────────────────────────────
 
 let wsSelectedLoader = 'paper';
 
-let wizardFromManager = false; // true = opened from Server Manager, back should go to dashboard
+let wizardFromManager = false; 
 
 function showWizard(mode = 'pick', fromManager = false) {
   wizardFromManager = fromManager;
@@ -981,7 +976,6 @@ function showDashMain() {
   document.getElementById('dash-server-ctrl').style.display = '';
 }
 
-// Choice cards
 document.getElementById('ws-choose-create').onclick = () => {
   document.getElementById('ws-name').value = '';
   document.getElementById('ws-create-confirm').disabled = true;
@@ -993,7 +987,6 @@ document.getElementById('ws-choose-import').onclick = () => {
 };
 document.getElementById('ws-create-back').onclick = () => {
   if (wizardFromManager) {
-    // Return to dashboard — they already have a server
     showDashMain();
     document.getElementById('server-manager-overlay').style.display = 'none';
   } else {
@@ -1009,7 +1002,6 @@ document.getElementById('ws-import-back').onclick = () => {
   }
 };
 
-// Loader selection
 document.querySelectorAll('.loader-card').forEach(card => {
   card.onclick = () => {
     document.querySelectorAll('.loader-card').forEach(c => c.classList.remove('selected'));
@@ -1078,7 +1070,6 @@ document.getElementById('ws-create-confirm').onclick = async () => {
   }
 };
 
-// Import flow
 let wsImportFolder = null;
 let wsImportJars = [];
 
@@ -1091,7 +1082,6 @@ document.getElementById('ws-import-browse').onclick = async () => {
   msg.textContent = r.hasProps ? '✓ Found server.properties' : '⚠ No server.properties found';
   msg.className = `setup-msg ${r.hasProps ? 'ok' : ''}`;
 
-  // Auto-fill name from folder name
   const folderName = r.folder.split(/[/\\]/).pop();
   if (!document.getElementById('ws-import-name').value) {
     document.getElementById('ws-import-name').value = folderName;
@@ -1144,7 +1134,6 @@ document.getElementById('ws-import-confirm').onclick = async () => {
   }
 };
 
-// Progress events
 api.on('create:progress', ({ pct, msg }) => {
   document.getElementById('ws-progress-bar').style.width = `${pct}%`;
   document.getElementById('ws-progress-pct').textContent = `${pct}%`;
@@ -1158,7 +1147,6 @@ api.on('create:log', ({ msg }) => {
   log.scrollTop = log.scrollHeight;
 });
 
-// ── Server Manager Modal ──────────────────────────────────────────────────
 
 document.getElementById('nav-servers-btn').onclick = openServerManager;
 document.getElementById('sm-close').onclick = () => {
@@ -1170,7 +1158,6 @@ document.getElementById('server-manager-overlay').onclick = e => {
 };
 document.getElementById('sm-create-btn').onclick = () => {
   document.getElementById('server-manager-overlay').style.display = 'none';
-  // Clear previous name and progress log
   document.getElementById('ws-name').value = '';
   document.getElementById('ws-progress-log').textContent = '';
   document.getElementById('ws-progress-log').classList.remove('visible');
@@ -1228,7 +1215,6 @@ async function renderServerManager() {
     list.appendChild(item);
   }
 
-  // Bind switch buttons
   list.querySelectorAll('.sm-switch-btn').forEach(btn => {
     btn.onclick = async () => {
       if (S.serverState !== 'stopped') {
@@ -1252,7 +1238,6 @@ async function renderServerManager() {
     };
   });
 
-  // Bind delete buttons
   list.querySelectorAll('.sm-del-btn').forEach(btn => {
     btn.onclick = async () => {
       const name = btn.dataset.name || btn.dataset.folder.split(/[/\\]/).pop();
@@ -1261,7 +1246,6 @@ async function renderServerManager() {
       if (!r.ok) { toast(r.error, 'err'); return; }
       toast(`Server "${name}" deleted`);
       if (r.newConfig) {
-        // Active server deleted, switched to another one
         S.configured = true;
         showDashMain();
         propsLoaded = false;
@@ -1274,14 +1258,12 @@ async function renderServerManager() {
         document.getElementById('server-manager-overlay').style.display = 'none';
         switchTab('dashboard');
       } else if (r.newConfig === null) {
-        // No servers left — show wizard
         S.configured = false;
         S.currentDir = null; S.dirStack = [];
         resetDlTabs();
         document.getElementById('server-manager-overlay').style.display = 'none';
         showWizard('pick');
       }
-      // else: non-active server deleted — just refresh the list
       await renderServerManager();
     };
   });
@@ -1291,14 +1273,11 @@ api.on('console:line',    d => appendLine(d));
 api.on('server:state',    d => {
   applyState(d.state);
   if (d.state === 'stopped') { S.players = []; renderPlayers(); resetStats(); }
-  // Refresh files tab when server finishes starting — first-run creates server.properties etc.
   if (d.state === 'running' && S.tab === 'files') refreshFiles();
 });
 api.on('players:updated', d => {
   S.players = d;
   renderPlayers();
-  // If we have players but state shows offline, self-heal the UI —
-  // the main process will correct the true state via stats:update shortly
   if (d.length > 0 && S.serverState === 'stopped') applyState('running');
 });
 api.on('stats:update',    d => applyStats(d));
@@ -1306,8 +1285,6 @@ api.on('playit:line',     d => appendPlayitLine(d.text));
 api.on('playit:address',  d => applyPlayitState({ running: true, address: d.address }));
 api.on('playit:state',    d => applyPlayitState({ running: d.running, address: d.running ? undefined : null }));
 
-// Periodic state re-sync: every 5 seconds ask main process for the real state.
-// This catches any case where IPC events were missed (restart races, re-attach, etc.)
 setInterval(async () => {
   try {
     const sv = await api.serverGetState();
@@ -1356,12 +1333,6 @@ async function init() {
 
 window.addEventListener('DOMContentLoaded', init);
 
-// ══════════════════════════════════════════════════════════════════════════════
-// ── DOWNLOAD MODS & PLUGINS ──────────────────────────────────────────────────
-// ══════════════════════════════════════════════════════════════════════════════
-
-// ── CurseForge Built-in API Key ───────────────────────────────────────────────
-// (Removed — CurseForge and Hangar sources have been removed)
 
 let dlModsTimer     = null;
 let dlPluginsTimer  = null;
@@ -1369,7 +1340,6 @@ let dlActiveConfig  = null;
 let dlModsInitialized    = false;
 let dlPluginsInitialized = false;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function serverSupportsMods(type)    { return ['fabric','forge','neoforge'].includes(type); }
 function serverSupportsPlugins(type) { return ['paper','purpur','spigot','bukkit','imported'].includes(type); }
@@ -1391,7 +1361,6 @@ function _updateDlBadge(id) {
   el.style.display = t ? '' : 'none';
 }
 
-// ── Modrinth API ─────────────────────────────────────────────────────────────
 const MR_UA = 'MehhServerManager/1.1 (github.com/mehhh)';
 
 async function modrinthSearch(query, projectType, loader, mcVersion) {
@@ -1416,7 +1385,6 @@ async function modrinthGetVersions(projectId, loader, mcVersion) {
   return r.json();
 }
 
-// ── Card renderers ────────────────────────────────────────────────────────────
 
 function makeDlCard({ icon, name, desc, downloads, categories, btnLabel, btnClass, onInstall }) {
   const card = document.createElement('div');
@@ -1439,7 +1407,6 @@ function makeDlCard({ icon, name, desc, downloads, categories, btnLabel, btnClas
   return card;
 }
 
-// ── Install helpers ───────────────────────────────────────────────────────────
 
 async function doInstall(btn, label, getUrlAndFilename) {
   btn.disabled = true;
@@ -1489,7 +1456,6 @@ async function installModrinthPlugin(projectId, name, mcVersion, btn) {
   });
 }
 
-// ── Search runners ────────────────────────────────────────────────────────────
 
 function setDlStatus(elId, html) { document.getElementById(elId).innerHTML = html; }
 function setDlResults(elId, html) { document.getElementById(elId).innerHTML = html; }
@@ -1577,7 +1543,6 @@ async function runDlPluginsSearch() {
   }
 }
 
-// ── Tab init ──────────────────────────────────────────────────────────────────
 
 async function initDlMods() {
   const prevType = dlActiveConfig?.serverType;
@@ -1599,26 +1564,22 @@ async function initDlPlugins() {
   }
 }
 
-// Reset on server switch so new tab switch will re-fetch with the new server's type/version
 function resetDlTabs() {
   dlModsInitialized = false;
   dlPluginsInitialized = false;
   dlActiveConfig = null;
 }
 
-// Source tab toggles (mods — Modrinth only)
 document.getElementById('dl-mods-src-modrinth').addEventListener('click', () => {
   dlModsInitialized = false;
   runDlModsSearch();
 });
 
-// Source tab toggles (plugins — Modrinth only)
 document.getElementById('dl-plugins-src-modrinth').addEventListener('click', () => {
   dlPluginsInitialized = false;
   runDlPluginsSearch();
 });
 
-// ── Search inputs (debounced) ─────────────────────────────────────────────────
 
 document.getElementById('dl-mods-search').addEventListener('input', () => {
   clearTimeout(dlModsTimer);
