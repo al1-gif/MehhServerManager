@@ -57,9 +57,6 @@ const S = {
   dirStack: [],
   playitRunning: false,
   configured: false,
-  customTunnels: [],   
-  tunnelRunning: {},   
-  tunnelOutput: {},    
 };
 
 function switchTab(name) {
@@ -88,8 +85,6 @@ function switchTab(name) {
       api.filesList(S.currentDir).then(renderFiles);
     }
   }
-  if (name === 'download-mods')    initDlMods();
-  if (name === 'download-plugins') initDlPlugins();
 }
 
 document.querySelectorAll('.nav-item').forEach(n => {
@@ -104,51 +99,59 @@ function applyState(state) {
   S.serverState = state;
   const dot  = document.getElementById('sdot');
   const lbl  = document.getElementById('slabel');
-  const ds   = document.getElementById('d-status');
   const bS   = document.getElementById('btn-start');
   const bSp  = document.getElementById('btn-stop');
   const bR   = document.getElementById('btn-restart');
 
   const map = {
-    stopped:  { cls: '',         lbl: 'Offline',   val: 'Offline',   valCls: '' },
-    starting: { cls: 'starting', lbl: 'Starting…', val: 'Starting…', valCls: 'starting' },
-    running:  { cls: 'online',   lbl: 'Online',    val: 'Online',    valCls: 'online' },
-    stopping: { cls: 'stopping', lbl: 'Stopping…', val: 'Stopping…', valCls: 'stopping' },
+    stopped:  { cls: '',         lbl: 'Offline'   },
+    starting: { cls: 'starting', lbl: 'Starting…' },
+    running:  { cls: 'online',   lbl: 'Online'    },
+    stopping: { cls: 'stopping', lbl: 'Stopping…' },
   };
   const info = map[state] || map.stopped;
 
   dot.className = `sdot ${info.cls}`;
   lbl.textContent = info.lbl;
-  if (ds) { ds.textContent = info.val; ds.className = `stat-val ${info.valCls}`; }
 
   if (bS)  bS.style.display  = state === 'stopped'  ? '' : 'none';
   if (bSp) bSp.style.display = (state === 'running' || state === 'stopping') ? '' : 'none';
   if (bR)  bR.style.display  = state === 'running'  ? '' : 'none';
+
+  if (state === 'running' && !_uptimeInterval) startUptimeTick();
+  if (state !== 'running' && state !== 'starting') stopUptimeTick();
 }
 
 document.getElementById('btn-start').onclick   = async () => { const r = await api.serverStart();   if (!r.ok) toast(r.error, 'err'); };
 document.getElementById('btn-stop').onclick    = async () => { const r = await api.serverStop();    if (!r.ok) toast(r.error, 'err'); };
 document.getElementById('btn-restart').onclick = async () => { const r = await api.serverRestart(); if (!r.ok) toast(r.error, 'err'); };
 
-function applyStats({ ram, maxRam, cpu, uptime, state }) {
-  const dr = document.getElementById('d-ram');
-  const dc = document.getElementById('d-cpu');
-  const du = document.getElementById('d-uptime');
-  if (dr) {
-    if (ram && maxRam) dr.textContent = `${ram >= 1024 ? (ram/1024).toFixed(1)+' GB' : ram+' MB'} / ${maxRam}`;
-    else if (ram) dr.textContent = `${ram} MB`;
-    else dr.textContent = '—';
-  }
-  if (dc) dc.textContent = cpu != null ? `${cpu}%` : '—';
-  if (du) du.textContent = fmtUptime(uptime);
+let _uptimeBase = 0;
+let _uptimeInterval = null;
+
+function startUptimeTick(baseSeconds) {
+  if (baseSeconds !== undefined) _uptimeBase = baseSeconds;
+  if (_uptimeInterval) return;
+  const start = Date.now() - _uptimeBase * 1000;
+  _uptimeInterval = setInterval(() => {
+    const el = document.getElementById('d-uptime');
+    if (el) el.textContent = fmtUptime(Math.floor((Date.now() - start) / 1000));
+  }, 1000);
+}
+function stopUptimeTick() {
+  if (_uptimeInterval) { clearInterval(_uptimeInterval); _uptimeInterval = null; }
+  const el = document.getElementById('d-uptime');
+  if (el) el.textContent = '—';
+}
+
+function applyStats({ uptime, state }) {
+  if (uptime && !_uptimeInterval) startUptimeTick(uptime);
   if (state && state !== S.serverState) applyState(state);
 }
 function resetStats() {
-  const d = id => document.getElementById(id);
-  if (d('d-ram')) d('d-ram').textContent = '—';
-  if (d('d-cpu')) d('d-cpu').textContent = '—';
-  if (d('d-uptime')) d('d-uptime').textContent = '—';
-  if (d('d-players')) d('d-players').textContent = '0';
+  stopUptimeTick();
+  const dp = document.getElementById('d-players');
+  if (dp) dp.textContent = '0';
 }
 
 let _diskCache = { world: 0, ts: 0 };
@@ -163,7 +166,6 @@ pollDisk();
 setInterval(pollDisk, 30000);
 
 const conOut  = document.getElementById('con-out');
-const miniCon = document.getElementById('mini-con');
 const MAX_CON = 500;
 
 function scrollToBottom() {
@@ -181,13 +183,6 @@ function appendLine(data) {
   if (conOut.children.length > MAX_CON) conOut.firstChild.remove();
 
   requestAnimationFrame(() => { conOut.scrollTop = conOut.scrollHeight; });
-
-  const ms = document.createElement('span');
-  ms.className = `l-${data.type || 'info'}`;
-  ms.textContent = data.text.substring(0, 120) + '\n';
-  miniCon.appendChild(ms);
-  while (miniCon.children.length > 25) miniCon.firstChild.remove();
-  miniCon.scrollTop = miniCon.scrollHeight;
 }
 
 const conIn = document.getElementById('con-in');
@@ -218,47 +213,8 @@ scrollBottomBtn.onclick = () => {
   scrollBottomBtn.style.display = 'none';
 };
 
-const MC_COLOR_MAP = {
-  '0':'mc-0','1':'mc-1','2':'mc-2','3':'mc-3','4':'mc-4','5':'mc-5',
-  '6':'mc-6','7':'mc-7','8':'mc-8','9':'mc-9','a':'mc-a','b':'mc-b',
-  'c':'mc-c','d':'mc-d','e':'mc-e','f':'mc-f',
-  'l':'mc-l','o':'mc-o','n':'mc-n','m':'mc-m',
-};
-
-function parseMOTD(raw) {
-  if (!raw) return '<span style="color:#aaa">No MOTD set</span>';
-  
-  const parts = raw.split(/(?=§[0-9a-fklmnor])/i);
-  let html = '';
-  let classes = [];
-  for (const part of parts) {
-    const match = part.match(/^§([0-9a-fklmnor])/i);
-    if (match) {
-      const code = match[1].toLowerCase();
-      if (code === 'r') { classes = []; }
-      else if (MC_COLOR_MAP[code]) {
-        
-        if ('0123456789abcdef'.includes(code)) {
-          classes = classes.filter(c => !c.startsWith('mc-') || c === 'mc-l' || c === 'mc-o' || c === 'mc-n' || c === 'mc-m');
-        }
-        classes.push(MC_COLOR_MAP[code]);
-      }
-      const text = esc(part.substring(2));
-      if (text) html += `<span class="${classes.join(' ')}">${text}</span>`;
-    } else {
-      html += `<span style="color:#fff">${esc(part)}</span>`;
-    }
-  }
-  return html || `<span style="color:#fff">${esc(raw)}</span>`;
-}
-
-function updateMOTDPreview(value) {
-  const preview = document.getElementById('motd-preview-content');
-  if (preview) preview.innerHTML = parseMOTD(value);
-}
-
 const PROPS = [
-  { key:'motd',              name:'Message of the Day', desc:'Message shown in the server list',            type:'text', isMOTD: true },
+  { key:'motd',              name:'Message of the Day', desc:'Message shown in the server list',            type:'text' },
   { key:'max-players',       name:'Max Players',        desc:'Maximum number of players',                   type:'number', min:1, max:1000 },
   { key:'gamemode',          name:'Default Gamemode',   desc:'Default game mode for new players',           type:'select', opts:['survival','creative','adventure','spectator'] },
   { key:'difficulty',        name:'Difficulty',         desc:'Game difficulty',                             type:'select', opts:['peaceful','easy','normal','hard'] },
@@ -312,23 +268,6 @@ async function loadProps() {
       ctrl.innerHTML = `<input type="text" class="form-input" data-key="${def.key}" value="${esc(val)}">`;
     }
     card.appendChild(ctrl);
-
-    
-    if (def.isMOTD) {
-      const prevWrap = document.createElement('div');
-      prevWrap.className = 'motd-preview-wrap';
-      prevWrap.innerHTML = `<div class="motd-preview-label">In-game Preview</div>
-        <div class="motd-preview-box"><span id="motd-preview-content"></span></div>`;
-      card.appendChild(prevWrap);
-      
-      const inp = ctrl.querySelector('input');
-      if (inp) {
-        inp.addEventListener('input', () => updateMOTDPreview(inp.value));
-        
-        setTimeout(() => updateMOTDPreview(val), 0);
-      }
-    }
-
     grid.appendChild(card);
   }
   propsLoaded = true;
@@ -405,7 +344,6 @@ function tryImageUrl(url) {
     img.onload  = () => resolve(url);
     img.onerror = () => reject();
     img.src = url;
-    
     setTimeout(() => reject(), 5000);
   });
 }
@@ -416,21 +354,18 @@ async function resolvePlayerHead(name) {
 
   const set = url => { _skinCache[name] = { headUrl: url, ts: Date.now() }; return url; };
 
-  // mc-heads.net: works by username for both Mojang and offline players — no UUID needed
   try {
     const url = `https://mc-heads.net/avatar/${encodeURIComponent(name)}/42`;
     await tryImageUrl(url);
     return set(url);
   } catch {}
 
-  // ely.by skin system (for players using ely.by auth)
   try {
     const url = `https://skinsystem.ely.by/renders/head/${encodeURIComponent(name)}?size=42`;
     await tryImageUrl(url);
     return set(url);
   } catch {}
 
-  // minotar fallback
   try {
     const url = `https://minotar.net/avatar/${encodeURIComponent(name)}/42`;
     await tryImageUrl(url);
@@ -444,31 +379,12 @@ function renderPlayers() {
   const list  = document.getElementById('players-list');
   const badge = document.getElementById('player-badge');
   const pc    = document.getElementById('pc');
-  const dp    = document.getElementById('d-players');
-  const mp    = document.getElementById('mini-players');
 
   const count = S.players.length;
   if (pc) pc.textContent = count;
-  if (dp) dp.textContent = count;
   badge.textContent = count;
   badge.style.display = count > 0 ? '' : 'none';
 
-  
-  if (mp) {
-    if (count > 0) {
-      mp.innerHTML = S.players.map(p => {
-        const cached = _skinCache[p.name];
-        const img = cached
-          ? `<img class="mp-avatar" src="${cached.headUrl}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'font-size:12px',textContent:'👤'}))">`
-          : `<span style="font-size:12px">👤</span>`;
-        return `<div class="mp-item">${img}${esc(p.name)}</div>`;
-      }).join('');
-    } else {
-      mp.innerHTML = '<div class="empty">No players online</div>';
-    }
-  }
-
-  
   if (!count) { list.innerHTML = '<div class="empty large">No players currently online</div>'; return; }
   list.innerHTML = '';
 
@@ -489,14 +405,11 @@ function renderPlayers() {
         <div class="player-btns">
           <button class="pbtn op"   data-p="${esc(p.name)}" data-a="op">OP</button>
           <button class="pbtn deop" data-p="${esc(p.name)}" data-a="deop">DeOP</button>
-          <button class="pbtn kick" data-p="${esc(p.name)}" data-a="kick">Kick</button>
-          <button class="pbtn ban"  data-p="${esc(p.name)}" data-a="ban">Ban</button>
         </div>
       </div>`;
 
     card.querySelectorAll('[data-a]').forEach(btn => {
       btn.onclick = async () => {
-        if (btn.dataset.a === 'ban' && !confirm(`Ban ${btn.dataset.p}?`)) return;
         const r = await api.playerAction({ player: btn.dataset.p, action: btn.dataset.a });
         if (!r.ok) toast(r.error || 'Failed', 'err');
         else toast(`${btn.dataset.a} ${btn.dataset.p}`);
@@ -504,7 +417,6 @@ function renderPlayers() {
     });
     list.appendChild(card);
 
-    
     if (!headUrl) {
       resolvePlayerHead(p.name).then(url => {
         const avEl = document.getElementById(`av-${p.name}`);
@@ -513,9 +425,6 @@ function renderPlayers() {
             ? `<img src="${url}" alt="${esc(p.name)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'player-av-fallback',textContent:'👤'}))">`
             : `<span class="player-av-fallback">👤</span>`;
         }
-        
-        const mp = document.getElementById('mini-players');
-        if (mp && mp.querySelector('.mp-item')) renderPlayers();
       });
     }
   }
@@ -526,7 +435,7 @@ setInterval(async () => {
     const players = await api.playersGet();
     if (Array.isArray(players)) {
       S.players = players;
-      renderPlayers(); 
+      renderPlayers();
     }
   } catch {}
 }, 60000);
@@ -534,13 +443,6 @@ setInterval(async () => {
 async function refreshPlayit() {
   const r = await api.playitGetStatus();
   applyPlayitState(r);
-  
-  const cfg = await api.getConfig();
-  if (cfg && cfg.playitPath) {
-    document.getElementById('playit-path-input').value = cfg.playitPath;
-    document.getElementById('playit-path-hint').textContent = '✓ Path saved';
-  }
-  loadCustomTunnels();
 }
 function applyPlayitState({ running, address }) {
   S.playitRunning = running;
@@ -589,156 +491,6 @@ document.getElementById('playit-stop').onclick = async () => {
   applyPlayitState({ running: false, address: null });
   toast('playit.gg stopped');
 };
-document.getElementById('playit-link').onclick = e => {
-  e.preventDefault();
-  api.filesOpen('https://playit.gg').catch(()=>{});
-};
-
-document.getElementById('playit-browse-btn').onclick = async () => {
-  const r = await api.playitBrowsePath();
-  if (!r.ok) return;
-  document.getElementById('playit-path-input').value = r.path;
-  document.getElementById('playit-path-hint').textContent = '✓ Path saved — click Start to run';
-  toast('playit.exe path saved ✓');
-};
-
-async function loadCustomTunnels() {
-  const r = await api.tunnelList();
-  S.customTunnels = r.tunnels || [];
-  const running = await api.tunnelRunningIds();
-  (running.ids || []).forEach(id => { S.tunnelRunning[id] = true; });
-  renderCustomTunnels();
-}
-
-function renderCustomTunnels() {
-  const container = document.getElementById('custom-tunnels-list');
-  if (!S.customTunnels.length) {
-    container.innerHTML = '<div class="empty" style="padding:20px 0">No custom tunnels added yet</div>';
-    return;
-  }
-  container.innerHTML = '';
-  for (const t of S.customTunnels) {
-    const running = !!S.tunnelRunning[t.id];
-    const item = document.createElement('div');
-    item.className = 'custom-tunnel-item';
-    item.id = `ctunnel-${t.id}`;
-    item.innerHTML = `
-      <div class="custom-tunnel-top">
-        <span class="sdot ${running ? 'online' : ''}" id="ct-dot-${t.id}"></span>
-        <span class="custom-tunnel-name">${esc(t.name)}</span>
-        <span style="font-size:12px;color:var(--t3)">${running ? 'Running' : 'Stopped'}</span>
-      </div>
-      <div class="custom-tunnel-exe" title="${esc(t.execPath)}">${esc(t.execPath)}${t.args ? ' ' + esc(t.args) : ''}</div>
-      <div class="custom-tunnel-actions">
-        ${running
-          ? `<button class="btn btn-danger btn-sm" id="ct-stop-${t.id}">■ Stop</button>`
-          : `<button class="btn btn-success btn-sm" id="ct-start-${t.id}">▶ Start</button>`}
-        <button class="btn btn-secondary btn-sm" id="ct-log-${t.id}">📋 Log</button>
-        <button class="ctl-del" id="ct-del-${t.id}">🗑 Remove</button>
-      </div>
-      <div class="custom-tunnel-con" id="ct-con-${t.id}"></div>`;
-    container.appendChild(item);
-
-    
-    const startBtn = document.getElementById(`ct-start-${t.id}`);
-    const stopBtn  = document.getElementById(`ct-stop-${t.id}`);
-    const logBtn   = document.getElementById(`ct-log-${t.id}`);
-    const delBtn   = document.getElementById(`ct-del-${t.id}`);
-    const con      = document.getElementById(`ct-con-${t.id}`);
-
-    
-    if (S.tunnelOutput[t.id]) {
-      con.className = 'custom-tunnel-con visible';
-      con.textContent = S.tunnelOutput[t.id].join('\n');
-      con.scrollTop = con.scrollHeight;
-    }
-
-    if (startBtn) startBtn.onclick = async () => {
-      const res = await api.tunnelStart({ id: t.id, execPath: t.execPath, args: t.args || '', postCmd: t.postCmd || '' });
-      if (!res.ok) toast(res.error, 'err');
-      else { S.tunnelRunning[t.id] = true; toast(`${t.name} started`); renderCustomTunnels(); }
-    };
-    if (stopBtn) stopBtn.onclick = async () => {
-      await api.tunnelStop({ id: t.id });
-      S.tunnelRunning[t.id] = false;
-      toast(`${t.name} stopped`);
-      renderCustomTunnels();
-    };
-    if (logBtn) logBtn.onclick = () => {
-      con.classList.toggle('visible');
-    };
-    if (delBtn) delBtn.onclick = async () => {
-      if (running && !confirm(`"${t.name}" is running. Stop and remove it?`)) return;
-      if (running) {
-        await api.tunnelStop({ id: t.id });
-        S.tunnelRunning[t.id] = false;
-      }
-      S.customTunnels = S.customTunnels.filter(x => x.id !== t.id);
-      await api.tunnelSaveAll(S.customTunnels);
-      renderCustomTunnels();
-      toast('Tunnel removed');
-    };
-  }
-}
-
-document.getElementById('tunnel-add-btn').onclick = () => {
-  document.getElementById('tnl-name').value = '';
-  document.getElementById('tnl-exe').value = '';
-  document.getElementById('tnl-args').value = '';
-  document.getElementById('tnl-postcmd').value = '';
-  document.getElementById('tnl-confirm').disabled = true;
-  document.getElementById('tunnel-add-overlay').style.display = 'flex';
-};
-document.getElementById('tunnel-add-overlay').onclick = e => {
-  if (e.target === document.getElementById('tunnel-add-overlay'))
-    document.getElementById('tunnel-add-overlay').style.display = 'none';
-};
-document.getElementById('tnl-cancel').onclick = () => {
-  document.getElementById('tunnel-add-overlay').style.display = 'none';
-};
-document.getElementById('tnl-browse').onclick = async () => {
-  const r = await api.tunnelBrowseExe();
-  if (!r.ok) return;
-  document.getElementById('tnl-exe').value = r.path;
-  checkTnlForm();
-};
-function checkTnlForm() {
-  const name = document.getElementById('tnl-name').value.trim();
-  const exe  = document.getElementById('tnl-exe').value.trim();
-  document.getElementById('tnl-confirm').disabled = !(name && exe);
-}
-document.getElementById('tnl-name').addEventListener('input', checkTnlForm);
-document.getElementById('tnl-confirm').onclick = async () => {
-  const name    = document.getElementById('tnl-name').value.trim();
-  const exe     = document.getElementById('tnl-exe').value.trim();
-  const args    = document.getElementById('tnl-args').value.trim();
-  const postCmd = document.getElementById('tnl-postcmd').value.trim();
-  if (!name || !exe) return;
-  const newTunnel = { id: `t_${Date.now()}`, name, execPath: exe, args, postCmd };
-  S.customTunnels.push(newTunnel);
-  await api.tunnelSaveAll(S.customTunnels);
-  document.getElementById('tunnel-add-overlay').style.display = 'none';
-  renderCustomTunnels();
-  toast(`Tunnel "${name}" added ✓`);
-};
-
-api.on('tunnel:output', d => {
-  if (!S.tunnelOutput[d.id]) S.tunnelOutput[d.id] = [];
-  S.tunnelOutput[d.id].push(d.text);
-  if (S.tunnelOutput[d.id].length > 200) S.tunnelOutput[d.id].shift();
-  const con = document.getElementById(`ct-con-${d.id}`);
-  if (con) {
-    con.classList.add('visible');
-    con.textContent = S.tunnelOutput[d.id].join('\n');
-    con.scrollTop = con.scrollHeight;
-  }
-});
-api.on('tunnel:state', d => {
-  S.tunnelRunning[d.id] = d.running;
-  const dot = document.getElementById(`ct-dot-${d.id}`);
-  if (dot) { dot.className = `sdot ${d.running ? 'online' : ''}`; }
-  if (!d.running) renderCustomTunnels();
-});
 
 async function initFiles() {
   if (!S.configured) {
@@ -772,7 +524,6 @@ function renderFiles(r) {
     <th style="text-align:right">Size</th>
     <th>Type</th>
     <th>Modified</th>
-    <th></th>
   </tr></thead>`;
   const tbody = document.createElement('tbody');
 
@@ -781,32 +532,17 @@ function renderFiles(r) {
     tr.className = `ft-row${e.isDir ? ' ft-dir' : ''}`;
     const ext  = e.ext ? e.ext.replace('.','').toUpperCase() : '';
     const type = e.isDir ? 'Folder' : (ext ? `${ext} File` : 'File');
-    const editBtn = (!e.isDir && e.editable)
-      ? `<button class="ft-edit-btn" data-path="${esc(join(e.name))}" title="Edit">✏ Edit</button>`
-      : '';
     tr.innerHTML = `
       <td class="ft-icon-cell">${fileIcon(e)}</td>
       <td class="ft-name-cell" title="${esc(e.name)}">${esc(e.name)}</td>
       <td class="ft-size-cell">${e.isDir ? '' : fmtBytes(e.size)}</td>
       <td class="ft-type-cell">${type}</td>
-      <td class="ft-date-cell">${e.modified ? new Date(e.modified).toLocaleString() : '—'}</td>
-      <td class="ft-actions-cell">${editBtn}</td>`;
-    tr.ondblclick = (ev) => {
-      
-      if (ev.target.closest('.ft-edit-btn')) return;
+      <td class="ft-date-cell">${e.modified ? new Date(e.modified).toLocaleString() : '—'}</td>`;
+    tr.ondblclick = () => {
       if (e.isDir) navTo(join(e.name));
-      else if (e.editable) openEditor(join(e.name));
       else api.filesOpen(join(e.name));
     };
     tr.oncontextmenu = () => api.filesShowExplorer(join(e.name));
-    
-    const editEl = tr.querySelector('.ft-edit-btn');
-    if (editEl) {
-      editEl.onclick = (ev) => {
-        ev.stopPropagation();
-        openEditor(editEl.dataset.path);
-      };
-    }
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
@@ -833,92 +569,9 @@ document.getElementById('files-up').onclick = () => {
     api.filesList(S.currentDir).then(renderFiles);
   }
 };
-document.getElementById('files-refresh').onclick = () => refreshFiles();
 document.getElementById('files-explorer').onclick = () => {
   if (S.currentDir) api.filesShowExplorer(S.currentDir);
 };
-
-let _editorFilePath = null;
-let _editorSavedTimer = null;
-
-async function openEditor(filePath) {
-  const r = await api.filesRead(filePath);
-  if (!r.ok) { toast(`Cannot open file: ${r.error}`, 'err'); return; }
-  _editorFilePath = filePath;
-  const overlay = document.getElementById('editor-overlay');
-  const textarea = document.getElementById('editor-textarea');
-  const fpLabel  = document.getElementById('editor-filepath');
-  const savedBar = document.getElementById('editor-saved-bar');
-
-  fpLabel.textContent = filePath;
-  textarea.value = r.content;
-  savedBar.style.display = 'none';
-  overlay.style.display = 'flex';
-  textarea.focus();
-  updateEditorFooter();
-}
-
-function updateEditorFooter() {
-  const ta = document.getElementById('editor-textarea');
-  const pos = ta.selectionStart;
-  const text = ta.value.substring(0, pos);
-  const lines = text.split('\n');
-  const ln = lines.length;
-  const col = lines[lines.length - 1].length + 1;
-  document.getElementById('editor-line-col').textContent = `Ln ${ln}, Col ${col}`;
-  document.getElementById('editor-char-count').textContent = `${ta.value.length} chars`;
-}
-
-document.getElementById('editor-textarea').addEventListener('keyup', updateEditorFooter);
-document.getElementById('editor-textarea').addEventListener('click', updateEditorFooter);
-document.getElementById('editor-textarea').addEventListener('keydown', e => {
-  
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    const ta = e.target;
-    const start = ta.selectionStart, end = ta.selectionEnd;
-    ta.value = ta.value.substring(0, start) + '  ' + ta.value.substring(end);
-    ta.selectionStart = ta.selectionEnd = start + 2;
-  }
-  
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault();
-    saveEditorFile();
-  }
-});
-
-async function saveEditorFile() {
-  if (!_editorFilePath) return;
-  const content = document.getElementById('editor-textarea').value;
-  const r = await api.filesWrite({ path: _editorFilePath, content });
-  if (r.ok) {
-    const bar = document.getElementById('editor-saved-bar');
-    bar.style.display = '';
-    clearTimeout(_editorSavedTimer);
-    _editorSavedTimer = setTimeout(() => { bar.style.display = 'none'; }, 3000);
-    toast('File saved ✓');
-    
-    if (S.currentDir) api.filesList(S.currentDir).then(renderFiles);
-  } else {
-    toast(`Save failed: ${r.error}`, 'err');
-  }
-}
-
-document.getElementById('editor-save').onclick = saveEditorFile;
-document.getElementById('editor-close').onclick = () => {
-  document.getElementById('editor-overlay').style.display = 'none';
-  _editorFilePath = null;
-};
-
-document.getElementById('editor-overlay').onclick = e => {
-  if (e.target === document.getElementById('editor-overlay'))
-    document.getElementById('editor-overlay').style.display = 'none';
-};
-document.querySelector('#editor-overlay .editor-modal')?.addEventListener('mousedown', e => {
-  if (!e.target.closest('button')) {
-    setTimeout(() => document.getElementById('editor-textarea').focus(), 0);
-  }
-});
 
 async function initQuickSettings() {
   const cfg = await api.getConfig();
@@ -949,10 +602,8 @@ document.getElementById('qs-ram-save').onclick = async () => {
   } else toast(r.error, 'err');
 };
 
-
 let wsSelectedLoader = 'paper';
-
-let wizardFromManager = false; 
+let wizardFromManager = false;
 
 function showWizard(mode = 'pick', fromManager = false) {
   wizardFromManager = fromManager;
@@ -1062,7 +713,6 @@ document.getElementById('ws-create-confirm').onclick = async () => {
     _diskCache = { world: 0, ts: 0 };
     initQuickSettings();
     pollDisk();
-    resetDlTabs();
     switchTab('dashboard');
   } else {
     showWizardStep('create');
@@ -1126,7 +776,6 @@ document.getElementById('ws-import-confirm').onclick = async () => {
     _diskCache = { world: 0, ts: 0 };
     initQuickSettings();
     pollDisk();
-    resetDlTabs();
     switchTab('dashboard');
   } else {
     showWizardStep('import');
@@ -1146,7 +795,6 @@ api.on('create:log', ({ msg }) => {
   log.textContent += msg + '\n';
   log.scrollTop = log.scrollHeight;
 });
-
 
 document.getElementById('nav-servers-btn').onclick = openServerManager;
 document.getElementById('sm-close').onclick = () => {
@@ -1231,7 +879,6 @@ async function renderServerManager() {
       pollDisk();
       applyState('stopped');
       S.players = []; renderPlayers(); resetStats();
-      resetDlTabs();
       document.getElementById('server-manager-overlay').style.display = 'none';
       switchTab('dashboard');
       toast(`Switched to "${btn.dataset.folder.split(/[/\\]/).pop()}" ✓`);
@@ -1254,13 +901,11 @@ async function renderServerManager() {
         pollDisk();
         applyState('stopped');
         S.players = []; renderPlayers(); resetStats();
-        resetDlTabs();
         document.getElementById('server-manager-overlay').style.display = 'none';
         switchTab('dashboard');
       } else if (r.newConfig === null) {
         S.configured = false;
         S.currentDir = null; S.dirStack = [];
-        resetDlTabs();
         document.getElementById('server-manager-overlay').style.display = 'none';
         showWizard('pick');
       }
@@ -1312,7 +957,7 @@ async function init() {
     applyState(sv.state);
     S.players = sv.players || [];
     renderPlayers();
-    if (sv.uptime) applyStats({ ram: 0, cpu: 0, uptime: sv.uptime, state: sv.state });
+    if (sv.uptime) startUptimeTick(sv.uptime);
     initQuickSettings();
     pollDisk();
 
@@ -1332,267 +977,3 @@ async function init() {
 }
 
 window.addEventListener('DOMContentLoaded', init);
-
-
-let dlModsTimer     = null;
-let dlPluginsTimer  = null;
-let dlActiveConfig  = null;
-let dlModsInitialized    = false;
-let dlPluginsInitialized = false;
-
-
-function serverSupportsMods(type)    { return ['fabric','forge','neoforge'].includes(type); }
-function serverSupportsPlugins(type) { return ['paper','purpur','spigot','bukkit','imported'].includes(type); }
-
-async function refreshDlConfig() {
-  try {
-    dlActiveConfig = await api.getConfig();
-    _updateDlBadge('dl-mods-badge');
-    _updateDlBadge('dl-plugins-badge');
-  } catch (_) {}
-}
-function _updateDlBadge(id) {
-  const el = document.getElementById(id);
-  if (!el || !dlActiveConfig) return;
-  const t = dlActiveConfig.serverType || '';
-  const v = dlActiveConfig.mcVersion  || '';
-  const label = (t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Unknown') + (v && v !== 'unknown' ? ' ' + v : '');
-  el.textContent = label;
-  el.style.display = t ? '' : 'none';
-}
-
-const MR_UA = 'MehhServerManager/1.1 (github.com/mehhh)';
-
-async function modrinthSearch(query, projectType, loader, mcVersion) {
-  const facets = [[`project_type:${projectType}`]];
-  if (loader)    facets.push([`categories:${loader}`]);
-  if (mcVersion && mcVersion !== 'unknown') facets.push([`versions:${mcVersion}`]);
-  const url = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(query || '')}&facets=${encodeURIComponent(JSON.stringify(facets))}&limit=20&index=relevance`;
-  const r = await fetch(url, { headers: { 'User-Agent': MR_UA } });
-  if (!r.ok) throw new Error(`Modrinth API ${r.status}`);
-  const data = await r.json();
-  return data.hits || [];
-}
-
-async function modrinthGetVersions(projectId, loader, mcVersion) {
-  let url = `https://api.modrinth.com/v2/project/${projectId}/version?`;
-  const params = [];
-  if (loader)    params.push(`loaders=${encodeURIComponent(JSON.stringify([loader]))}`);
-  if (mcVersion && mcVersion !== 'unknown') params.push(`game_versions=${encodeURIComponent(JSON.stringify([mcVersion]))}`);
-  url += params.join('&');
-  const r = await fetch(url, { headers: { 'User-Agent': MR_UA } });
-  if (!r.ok) throw new Error(`Modrinth API ${r.status}`);
-  return r.json();
-}
-
-
-function makeDlCard({ icon, name, desc, downloads, categories, btnLabel, btnClass, onInstall }) {
-  const card = document.createElement('div');
-  card.className = 'dl-card';
-  const dlFmt = d => d >= 1000000 ? `${(d/1000000).toFixed(1)}M` : d >= 1000 ? `${(d/1000).toFixed(0)}K` : String(d || '?');
-  const cats  = (categories || []).slice(0, 3).join(' · ');
-  card.innerHTML = `
-    <div class="dl-card-icon">
-      ${icon ? `<img src="${esc(icon)}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<span class=dl-icon-fb>📦</span>'">` : '<span class="dl-icon-fb">📦</span>'}
-    </div>
-    <div class="dl-card-body">
-      <div class="dl-card-name">${esc(name)}</div>
-      <div class="dl-card-desc">${esc((desc || '').substring(0, 130))}</div>
-      ${cats || downloads ? `<div class="dl-card-meta">${downloads ? `<span>⬇ ${dlFmt(downloads)}</span>` : ''}${cats ? `<span>${esc(cats)}</span>` : ''}</div>` : ''}
-    </div>
-    <div class="dl-card-actions">
-      <button class="btn ${btnClass || 'btn-primary'} btn-sm dl-install-btn">⬇ Install</button>
-    </div>`;
-  card.querySelector('.dl-install-btn').addEventListener('click', function() { onInstall(this); });
-  return card;
-}
-
-
-async function doInstall(btn, label, getUrlAndFilename) {
-  btn.disabled = true;
-  btn.textContent = '⏳ Fetching…';
-  try {
-    const { url, filename } = await getUrlAndFilename();
-    btn.textContent = '⬇ 0%';
-    const offProgress = api.on('download:progress', ({ filename: fn, pct }) => {
-      if (fn === filename) btn.textContent = `⬇ ${pct}%`;
-    });
-    const r = await api.modsDownloadUrl({ url, filename });
-    if (r.ok) {
-      btn.textContent = '✓ Installed';
-      btn.className = btn.className.replace('btn-primary','btn-success');
-      toast(`${label} installed ✓`);
-      if (S.tab === 'mods') loadMods();
-    } else {
-      throw new Error(r.error);
-    }
-  } catch (e) {
-    btn.textContent = '⬇ Install';
-    btn.disabled = false;
-    btn.className = btn.className.replace('btn-success','btn-primary');
-    toast(e.message || 'Install failed', 'err');
-  }
-}
-
-async function installModrinthMod(projectId, name, loader, mcVersion, btn) {
-  await doInstall(btn, name, async () => {
-    const versions = await modrinthGetVersions(projectId, loader, mcVersion);
-    if (!versions || !versions.length) throw new Error(`No compatible ${loader} ${mcVersion} version found for "${name}"`);
-    const ver  = versions[0];
-    const file = ver.files.find(f => f.primary) || ver.files[0];
-    if (!file) throw new Error('No download file in this version');
-    return { url: file.url, filename: file.filename };
-  });
-}
-
-async function installModrinthPlugin(projectId, name, mcVersion, btn) {
-  await doInstall(btn, name, async () => {
-    const versions = await modrinthGetVersions(projectId, null, mcVersion);
-    if (!versions || !versions.length) throw new Error(`No compatible version found for "${name}"`);
-    const ver  = versions[0];
-    const file = ver.files.find(f => f.primary) || ver.files[0];
-    if (!file) throw new Error('No download file in this version');
-    return { url: file.url, filename: file.filename };
-  });
-}
-
-
-function setDlStatus(elId, html) { document.getElementById(elId).innerHTML = html; }
-function setDlResults(elId, html) { document.getElementById(elId).innerHTML = html; }
-
-async function runDlModsSearch() {
-  if (!dlActiveConfig) await refreshDlConfig();
-  const query     = (document.getElementById('dl-mods-search').value || '').trim();
-  const type      = dlActiveConfig?.serverType  || '';
-  const mcVersion = dlActiveConfig?.mcVersion   || '';
-  const statusEl  = 'dl-mods-status';
-  const resultsEl = 'dl-mods-results';
-
-  if (!S.configured || !type) {
-    setDlStatus(statusEl, '<div class="dl-nosupport">⚠ No server active. Create or import a server first.</div>');
-    setDlResults(resultsEl, '');
-    return;
-  }
-
-  if (!serverSupportsMods(type)) {
-    const label = type ? type.charAt(0).toUpperCase() + type.slice(1) : 'This server type';
-    setDlStatus(statusEl, `<div class="dl-nosupport">📦 <strong>${esc(label)}</strong> servers don't use mods.<br>Switch to a <strong>Fabric</strong> or <strong>Forge</strong> server to download mods.</div>`);
-    setDlResults(resultsEl, '');
-    return;
-  }
-
-  const loader = type;
-  setDlStatus(statusEl, '<div class="dl-loading">🔍 Searching…</div>');
-  setDlResults(resultsEl, '');
-
-  try {
-    const grid = document.getElementById(resultsEl);
-    grid.innerHTML = '';
-    const hits = await modrinthSearch(query, 'mod', loader, mcVersion);
-    setDlStatus(statusEl, '');
-    if (!hits.length) { grid.innerHTML = `<div class="empty" style="padding:30px">No ${loader} mods found${mcVersion && mcVersion !== 'unknown' ? ` for MC ${mcVersion}` : ''}${query ? ` matching "${esc(query)}"` : ''}.</div>`; return; }
-    for (const h of hits) {
-      const card = makeDlCard({ icon: h.icon_url, name: h.title || h.slug, desc: h.description, downloads: h.downloads, categories: h.categories,
-        onInstall: btn => installModrinthMod(h.project_id, h.title, loader, mcVersion, btn) });
-      grid.appendChild(card);
-    }
-  } catch (e) {
-    setDlStatus(statusEl, `<div class="dl-error">❌ Search failed: ${esc(e.message)}</div>`);
-    setDlResults(resultsEl, '');
-  }
-}
-
-async function runDlPluginsSearch() {
-  if (!dlActiveConfig) await refreshDlConfig();
-  const query     = (document.getElementById('dl-plugins-search').value || '').trim();
-  const type      = dlActiveConfig?.serverType  || '';
-  const mcVersion = dlActiveConfig?.mcVersion   || '';
-  const statusEl  = 'dl-plugins-status';
-  const resultsEl = 'dl-plugins-results';
-
-  if (!S.configured || !type) {
-    setDlStatus(statusEl, '<div class="dl-nosupport">⚠ No server active. Create or import a server first.</div>');
-    setDlResults(resultsEl, '');
-    return;
-  }
-
-  if (!serverSupportsPlugins(type)) {
-    const label = type ? type.charAt(0).toUpperCase() + type.slice(1) : 'This server type';
-    setDlStatus(statusEl, `<div class="dl-nosupport">🔌 <strong>${esc(label)}</strong> servers don't use plugins.<br>Switch to a <strong>Paper</strong> or <strong>Purpur</strong> server to download plugins.</div>`);
-    setDlResults(resultsEl, '');
-    return;
-  }
-
-  setDlStatus(statusEl, '<div class="dl-loading">🔍 Searching…</div>');
-  setDlResults(resultsEl, '');
-
-  try {
-    const grid = document.getElementById(resultsEl);
-    grid.innerHTML = '';
-    const hits = await modrinthSearch(query, 'plugin', null, mcVersion);
-    setDlStatus(statusEl, '');
-    if (!hits.length) { grid.innerHTML = `<div class="empty" style="padding:30px">No plugins found${mcVersion && mcVersion !== 'unknown' ? ` for MC ${mcVersion}` : ''}${query ? ` matching "${esc(query)}"` : ''}.</div>`; return; }
-    for (const h of hits) {
-      const card = makeDlCard({ icon: h.icon_url, name: h.title || h.slug, desc: h.description, downloads: h.downloads, categories: h.categories,
-        onInstall: btn => installModrinthPlugin(h.project_id, h.title, mcVersion, btn) });
-      grid.appendChild(card);
-    }
-  } catch (e) {
-    setDlStatus(statusEl, `<div class="dl-error">❌ Search failed: ${esc(e.message)}</div>`);
-    setDlResults(resultsEl, '');
-  }
-}
-
-
-async function initDlMods() {
-  const prevType = dlActiveConfig?.serverType;
-  const prevVer  = dlActiveConfig?.mcVersion;
-  await refreshDlConfig();
-  if (!dlModsInitialized || prevType !== dlActiveConfig?.serverType || prevVer !== dlActiveConfig?.mcVersion) {
-    dlModsInitialized = true;
-    runDlModsSearch();
-  }
-}
-
-async function initDlPlugins() {
-  const prevType = dlActiveConfig?.serverType;
-  const prevVer  = dlActiveConfig?.mcVersion;
-  await refreshDlConfig();
-  if (!dlPluginsInitialized || prevType !== dlActiveConfig?.serverType || prevVer !== dlActiveConfig?.mcVersion) {
-    dlPluginsInitialized = true;
-    runDlPluginsSearch();
-  }
-}
-
-function resetDlTabs() {
-  dlModsInitialized = false;
-  dlPluginsInitialized = false;
-  dlActiveConfig = null;
-}
-
-document.getElementById('dl-mods-src-modrinth').addEventListener('click', () => {
-  dlModsInitialized = false;
-  runDlModsSearch();
-});
-
-document.getElementById('dl-plugins-src-modrinth').addEventListener('click', () => {
-  dlPluginsInitialized = false;
-  runDlPluginsSearch();
-});
-
-
-document.getElementById('dl-mods-search').addEventListener('input', () => {
-  clearTimeout(dlModsTimer);
-  dlModsTimer = setTimeout(runDlModsSearch, 400);
-});
-document.getElementById('dl-mods-search').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { clearTimeout(dlModsTimer); runDlModsSearch(); }
-});
-
-document.getElementById('dl-plugins-search').addEventListener('input', () => {
-  clearTimeout(dlPluginsTimer);
-  dlPluginsTimer = setTimeout(runDlPluginsSearch, 400);
-});
-document.getElementById('dl-plugins-search').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { clearTimeout(dlPluginsTimer); runDlPluginsSearch(); }
-});

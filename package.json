@@ -1,6 +1,6 @@
 {
   "name": "mehhservermanager",
-  "version": "1.2.6",
+  "version": "1.2.6-lite",
   "description": "Unified Minecraft Java Server Dashboard",
   "main": "main.js",
   "scripts": {
@@ -17,7 +17,7 @@
   },
   "build": {
     "appId": "com.mehhservermanager.app",
-    "productName": "MehhServerManager",
+    "productName": "MehhServerManager-Lite",
     "directories": {
       "output": "dist"
     },

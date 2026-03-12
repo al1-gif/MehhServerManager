@@ -32,8 +32,6 @@
         <li class="nav-item active" data-tab="dashboard"><span class="ni">🖥</span><span>Dashboard</span></li>
         <li class="nav-item"        data-tab="properties"><span class="ni">⚙</span><span>Properties</span></li>
         <li class="nav-item"        data-tab="mods">      <span class="ni">📦</span><span>Mods / Plugins</span></li>
-        <li class="nav-item"        data-tab="download-mods">    <span class="ni">⬇</span><span>Download Mods</span></li>
-        <li class="nav-item"        data-tab="download-plugins"> <span class="ni">🔌</span><span>Download Plugins</span></li>
         <li class="nav-item"        data-tab="players">   <span class="ni">👥</span><span>Players</span><span class="nav-badge" id="player-badge" style="display:none">0</span></li>
         <li class="nav-item"        data-tab="console">   <span class="ni">💻</span><span>Console</span></li>
         <li class="nav-item"        data-tab="tunnels">   <span class="ni">🌐</span><span>Tunnels</span></li>
@@ -48,6 +46,7 @@
 
     <main class="content">
 
+      <!-- ── DASHBOARD ──────────────────────────────────────────── -->
       <div id="tab-dashboard" class="tab active">
         <div class="ph">
           <h1 class="ptitle">Dashboard</h1>
@@ -69,7 +68,7 @@
                 <div class="ws-choice-card" id="ws-choose-create">
                   <div class="ws-choice-icon">🆕</div>
                   <div class="ws-choice-title">Create New Server</div>
-                  <div class="ws-choice-desc">Download Paper, Fabric, Forge, Purpur or Vanilla automatically</div>
+                  <div class="ws-choice-desc">Download Paper or Fabric automatically</div>
                 </div>
                 <div class="ws-choice-card" id="ws-choose-import">
                   <div class="ws-choice-icon">📂</div>
@@ -89,10 +88,7 @@
                 <label class="form-label" style="margin-top:16px">Server Type</label>
                 <div class="loader-grid">
                   <div class="loader-card selected" data-loader="paper"><span>📄</span><span>Paper</span></div>
-                  <div class="loader-card" data-loader="purpur"><span>🟣</span><span>Purpur</span></div>
                   <div class="loader-card" data-loader="fabric"><span>🧵</span><span>Fabric</span></div>
-                  <div class="loader-card" data-loader="forge"><span>⚒</span><span>Forge</span></div>
-                  <div class="loader-card" data-loader="vanilla"><span>🌿</span><span>Vanilla</span></div>
                 </div>
 
                 <label class="form-label" style="margin-top:16px">Minecraft Version</label>
@@ -157,24 +153,9 @@
 
           </div>
         </div>
+
         <div id="dash-main" style="display:none">
           <div class="stat-grid">
-            <div class="stat-card">
-              <div class="stat-label">Status</div>
-              <div class="stat-val" id="d-status">Offline</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Players Online</div>
-              <div class="stat-val" id="d-players">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">RAM Usage</div>
-              <div class="stat-val" id="d-ram">—</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">CPU Usage</div>
-              <div class="stat-val" id="d-cpu">—</div>
-            </div>
             <div class="stat-card">
               <div class="stat-label">Uptime</div>
               <div class="stat-val" id="d-uptime">—</div>
@@ -206,21 +187,12 @@
               </div>
             </div>
           </div>
-          <div class="dash-bottom">
-            <div class="card">
-              <div class="card-hdr">Recent Console</div>
-              <div class="mini-con" id="mini-con"></div>
-            </div>
-            <div class="card">
-              <div class="card-hdr">Online Players</div>
-              <div class="mini-players" id="mini-players"><div class="empty">No players online</div></div>
-            </div>
-          </div>
 
-          <div class="dash-watermark">app developed by Shuuphe for Playit.gg tunnel/Vpn/portforwarding</div>
+          <div class="dash-watermark">old version of the app for low end pc made by Shuuphe</div>
         </div>
       </div>
 
+      <!-- ── PROPERTIES ─────────────────────────────────────────── -->
       <div id="tab-properties" class="tab">
         <div class="ph">
           <h1 class="ptitle">Server Properties</h1>
@@ -232,6 +204,7 @@
         </div>
       </div>
 
+      <!-- ── MODS ───────────────────────────────────────────────── -->
       <div id="tab-mods" class="tab">
         <div class="ph">
           <h1 class="ptitle" id="mods-title">Mods / Plugins</h1>
@@ -245,40 +218,7 @@
         </div>
       </div>
 
-      <div id="tab-download-mods" class="tab">
-        <div class="ph">
-          <h1 class="ptitle">Download Mods</h1>
-          <span class="srv-type-badge" id="dl-mods-badge"></span>
-        </div>
-        <div class="dl-toolbar">
-          <input class="form-input dl-search-input" id="dl-mods-search" placeholder="Search mods… (leave empty for popular)" autocomplete="off" spellcheck="false">
-          <div class="dl-src-tabs">
-            <button class="dl-src-btn active" data-src="modrinth" id="dl-mods-src-modrinth">Modrinth</button>
-          </div>
-        </div>
-        <div class="tab-scroll" style="padding-top:8px">
-          <div id="dl-mods-status"></div>
-          <div id="dl-mods-results" class="dl-results-grid"></div>
-        </div>
-      </div>
-
-      <div id="tab-download-plugins" class="tab">
-        <div class="ph">
-          <h1 class="ptitle">Download Plugins</h1>
-          <span class="srv-type-badge" id="dl-plugins-badge"></span>
-        </div>
-        <div class="dl-toolbar">
-          <input class="form-input dl-search-input" id="dl-plugins-search" placeholder="Search plugins… (leave empty for popular)" autocomplete="off" spellcheck="false">
-          <div class="dl-src-tabs">
-            <button class="dl-src-btn active" data-src="modrinth" id="dl-plugins-src-modrinth">Modrinth</button>
-          </div>
-        </div>
-        <div class="tab-scroll" style="padding-top:8px">
-          <div id="dl-plugins-status"></div>
-          <div id="dl-plugins-results" class="dl-results-grid"></div>
-        </div>
-      </div>
-
+      <!-- ── PLAYERS ────────────────────────────────────────────── -->
       <div id="tab-players" class="tab">
         <div class="ph">
           <h1 class="ptitle">Players</h1>
@@ -289,6 +229,7 @@
         </div>
       </div>
 
+      <!-- ── CONSOLE ────────────────────────────────────────────── -->
       <div id="tab-console" class="tab console-tab">
         <div class="ph">
           <h1 class="ptitle">Console</h1>
@@ -307,6 +248,7 @@
         </div>
       </div>
 
+      <!-- ── TUNNELS ────────────────────────────────────────────── -->
       <div id="tab-tunnels" class="tab">
         <div class="ph"><h1 class="ptitle">Tunnels</h1></div>
         <div class="tab-scroll">
@@ -317,22 +259,12 @@
                 <span style="font-size:32px">🎮</span>
                 <div>
                   <div class="tunnel-name">playit.gg</div>
-                  <div class="tunnel-desc">Tunnels your server to the internet — for PC &amp; mobile players</div>
                 </div>
               </div>
               <div class="tunnel-status-row">
                 <span class="sdot" id="playit-dot"></span>
                 <span id="playit-status">Stopped</span>
               </div>
-            </div>
-
-            <div class="playit-path-row">
-              <label class="form-label" style="margin-bottom:4px">playit.exe Location</label>
-              <div class="row-gap">
-                <input id="playit-path-input" class="form-input" type="text" placeholder="Auto-detected from server folder or browse…" readonly>
-                <button class="btn btn-secondary btn-sm" id="playit-browse-btn">Browse…</button>
-              </div>
-              <span class="form-hint" id="playit-path-hint"></span>
             </div>
 
             <div id="playit-addr-box" style="display:none" class="addr-box">
@@ -346,35 +278,17 @@
               <button class="btn btn-danger"  id="playit-stop" style="display:none">■ Stop</button>
             </div>
 
-            <div class="card-hdr" style="margin-top:16px">playit.gg Console Output</div>
+            <div class="card-hdr" style="margin-top:16px">playit.gg Output</div>
             <div class="playit-con" id="playit-con">
               <div class="empty">playit.gg output will appear here once started</div>
             </div>
 
-            <div class="tunnel-note">
-              <strong>Setup:</strong> Download <code>playit.exe</code> from
-              <a href="#" id="playit-link">playit.gg</a>, place it in your server folder or use Browse above.
-              The tunnel address will appear automatically once started.
-            </div>
-          </div>
-
-          <div class="tunnel-card" style="margin-top:16px">
-            <div class="tunnel-section-hdr">
-              <div>
-                <div class="tunnel-name" style="font-size:16px">Other Tunnels</div>
-                <div class="tunnel-desc">Add and run other tunnel software (ngrok, Radmin, ZeroTier, etc.)</div>
-              </div>
-              <button class="btn btn-primary btn-sm" id="tunnel-add-btn">+ Add Tunnel</button>
-            </div>
-
-            <div id="custom-tunnels-list">
-              <div class="empty" style="padding:20px 0">No custom tunnels added yet</div>
-            </div>
           </div>
 
         </div>
       </div>
 
+      <!-- ── FILES ──────────────────────────────────────────────── -->
       <div id="tab-files" class="tab">
         <div class="ph">
           <h1 class="ptitle">Files</h1>
@@ -382,7 +296,6 @@
         </div>
         <div class="files-toolbar">
           <button class="btn btn-secondary btn-sm" id="files-up">⬆ Up</button>
-          <button class="btn btn-secondary btn-sm" id="files-refresh">🔄 Refresh</button>
           <button class="btn btn-secondary btn-sm" id="files-explorer">📂 Open in Explorer</button>
         </div>
         <div class="tab-scroll" style="padding:0">
@@ -396,47 +309,7 @@
 
 <div id="toast"></div>
 
-<div id="editor-overlay" style="display:none">
-  <div class="editor-modal">
-    <div class="editor-hdr">
-      <div class="editor-filepath" id="editor-filepath"></div>
-      <div class="editor-hdr-btns">
-        <button class="btn btn-primary btn-sm" id="editor-save">💾 Save</button>
-        <button class="btn btn-secondary btn-sm" id="editor-close">✕ Close</button>
-      </div>
-    </div>
-    <div class="editor-saved-bar" id="editor-saved-bar" style="display:none">✓ File saved successfully</div>
-    <textarea class="editor-textarea" id="editor-textarea" spellcheck="false" autocomplete="off" autocorrect="off"></textarea>
-    <div class="editor-footer">
-      <span id="editor-line-col">Ln 1, Col 1</span>
-      <span id="editor-char-count"></span>
-    </div>
-  </div>
-</div>
-
-<div id="tunnel-add-overlay" style="display:none">
-  <div class="setup-modal" style="width:480px">
-    <div class="setup-logo">+ Add Tunnel</div>
-    <h2 class="setup-title" style="font-size:18px">Configure Custom Tunnel</h2>
-    <label class="form-label" style="margin-top:14px">Tunnel Name</label>
-    <input id="tnl-name" class="form-input" type="text" placeholder="e.g. ngrok, Radmin VPN…">
-    <label class="form-label" style="margin-top:14px">Executable Path</label>
-    <div class="row-gap">
-      <input id="tnl-exe" class="form-input" type="text" placeholder="Path to executable…" readonly>
-      <button class="btn btn-secondary" id="tnl-browse">Browse…</button>
-    </div>
-    <label class="form-label" style="margin-top:14px">Arguments <span class="opt-lbl">(optional)</span></label>
-    <input id="tnl-args" class="form-input" type="text" placeholder="e.g. http 25565">
-    <label class="form-label" style="margin-top:14px">Post-Launch Command <span class="opt-lbl">(optional — runs 2s after start)</span></label>
-    <input id="tnl-postcmd" class="form-input" type="text" placeholder='e.g. "C:\RadminVPN\RadminVPN.exe" /connect "MyNetwork" "Password"'>
-    <span class="form-hint">For Radmin VPN: enter the full connect command to auto-join your network after launch</span>
-    <div style="display:flex;gap:8px;margin-top:20px">
-      <button class="btn btn-primary" id="tnl-confirm" style="flex:1;padding:10px" disabled>Add Tunnel</button>
-      <button class="btn btn-secondary" id="tnl-cancel" style="padding:10px 18px">Cancel</button>
-    </div>
-  </div>
-</div>
-
+<!-- ══ SERVER MANAGER MODAL ════════════════════════════════════════════════════ -->
 <div id="server-manager-overlay" style="display:none">
   <div class="sm-modal">
     <div class="sm-hdr">

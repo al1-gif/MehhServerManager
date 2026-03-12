@@ -8,8 +8,6 @@ const http  = require('http');
 
 app.setName('MehhServerManager');
 
-
-
 let mainWindow    = null;
 let serverProcess = null;
 let playitProcess = null;
@@ -20,7 +18,6 @@ let serverStartTime = null;
 let onlinePlayers = new Map();
 let statsInterval = null;
 let playitAddress = null;
-const customTunnelProcesses = new Map(); 
 
 const CONFIG_FILE  = path.join(app.getPath('userData'), 'mehhservermanager-config.json');
 const RUNTIME_FILE = path.join(app.getPath('userData'), 'mehhservermanager-runtime.json');
@@ -53,7 +50,6 @@ function isPidAliveJava(pid) {
   return new Promise(resolve => {
     if (!pid) return resolve(false);
     try { process.kill(pid, 0); } catch { return resolve(false); }
-    
     if (process.platform === 'win32') {
       exec(`powershell -NoProfile -Command "(Get-Process -Id ${pid} -EA SilentlyContinue).Name"`,
         { windowsHide: true }, (err, out) => {
@@ -97,9 +93,9 @@ function writeProperties(original, updates) {
 
 function stripPlayerName(s) {
   return s
-    .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')  
-    .replace(/§[0-9a-fklmnorx]/gi, '')          
-    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '')   
+    .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')
+    .replace(/§[0-9a-fklmnorx]/gi, '')
+    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '')
     .trim();
 }
 
@@ -134,61 +130,6 @@ function classifyLine(line) {
 function broadcastPlayers() { send('players:updated', Array.from(onlinePlayers.values())); }
 function send(ch, data) { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(ch, data); }
 
-let _lastCpuSec = 0, _lastCpuAt = 0;
-function resetCpuState() { _lastCpuSec = 0; _lastCpuAt = 0; }
-
-function getProcessCPU(pid) {
-  return new Promise(resolve => {
-    if (!pid) return resolve(0);
-    if (process.platform === 'win32') {
-      exec(
-        `powershell -NoProfile -Command "(Get-Process -Id ${pid} -EA SilentlyContinue).CPU"`,
-        { windowsHide: true, timeout: 4000 },
-        (err, stdout) => {
-          if (err || !stdout.trim()) return resolve(0);
-          const cpuSec = parseFloat(stdout.trim());
-          if (isNaN(cpuSec) || cpuSec < 0) return resolve(0);
-          const now = Date.now();
-          let pct = 0;
-          if (_lastCpuAt > 0 && cpuSec >= _lastCpuSec) {
-            const elapsed = (now - _lastCpuAt) / 1000;
-            if (elapsed >= 0.5) {
-              const delta = cpuSec - _lastCpuSec;
-              pct = Math.max(0, Math.min(100, Math.round((delta / elapsed) * 100)));
-            }
-          }
-          _lastCpuSec = cpuSec; _lastCpuAt = now;
-          resolve(pct);
-        }
-      );
-    } else {
-      exec(`ps -o %cpu= -p ${pid}`, { timeout: 4000 }, (err, out) =>
-        resolve(err ? 0 : Math.max(0, Math.round(parseFloat(out.trim()) || 0))));
-    }
-  });
-}
-
-function getProcessRAM(pid) {
-  return new Promise(resolve => {
-    if (!pid) return resolve({ used: 0 });
-    if (process.platform === 'win32') {
-      exec(
-        `powershell -NoProfile -Command "$p=Get-Process -Id ${pid} -EA SilentlyContinue; if($p){$p.PrivateMemorySize64}else{0}"`,
-        { windowsHide: true, timeout: 4000 },
-        (err, stdout) => {
-          if (err || !stdout.trim()) return resolve({ used: 0 });
-          const bytes = parseInt(stdout.trim(), 10);
-          resolve({ used: isNaN(bytes) ? 0 : Math.round(bytes / 1024 / 1024) });
-        }
-      );
-    } else {
-      exec(`ps -o rss= -p ${pid}`, { timeout: 4000 }, (err, out) => {
-        resolve({ used: err ? 0 : Math.round(parseInt(out.trim(), 10) / 1024) });
-      });
-    }
-  });
-}
-
 function getConfiguredMaxRam() {
   const m = (serverConfig.javaArgs || '').match(/-Xmx(\d+)([gGmM])/);
   if (!m) return null;
@@ -196,6 +137,7 @@ function getConfiguredMaxRam() {
   const unit = m[2].toLowerCase();
   return unit === 'g' ? { mb: val * 1024, label: `${val} GB` } : { mb: val, label: `${val} MB` };
 }
+
 let _diskCache = { world: 0, ts: 0 };
 function getDiskUsage(folder) {
   return new Promise(resolve => {
@@ -221,22 +163,16 @@ function startStatsPolling() {
   statsInterval = setInterval(async () => {
     const pid = serverProcess ? serverProcess.pid : detachedPid;
     if (!pid) return;
-
     if (serverState === 'stopped') {
       const alive = await isPidAliveJava(pid);
       if (alive) {
         serverState = 'running';
         if (!serverStartTime) serverStartTime = Date.now();
         send('server:state', { state: 'running' });
-      } else {
-        return; 
-      }
+      } else return;
     }
-
-    const [ramData, cpu] = await Promise.all([getProcessRAM(pid), getProcessCPU(pid)]);
     const uptime = serverStartTime ? Math.floor((Date.now() - serverStartTime) / 1000) : 0;
-    const maxRam = getConfiguredMaxRam();
-    send('stats:update', { ram: ramData.used, maxRam: maxRam ? maxRam.label : null, cpu, uptime, state: serverState });
+    send('stats:update', { uptime, state: serverState });
   }, 2000);
 }
 
@@ -276,7 +212,6 @@ function startServer() {
     return { ok: false, error: `Failed to launch java: ${e.message}` };
   }
 
-  
   detachedPid = serverProcess.pid;
   saveRuntime({ pid: serverProcess.pid, startTime: Date.now(), serverFolder, serverJar: serverConfig.serverJar });
 
@@ -355,7 +290,6 @@ function startPlayit() {
     serverFolder && path.join(serverFolder, 'playit'),
   ].filter(p => p && fs.existsSync(p));
 
-  
   const pathCandidates = ['playit.exe', 'playit'];
 
   let launched = false, lastErr = 'playit executable not found';
@@ -373,13 +307,14 @@ function startPlayit() {
 
   const ADDR_RE = /((?:[a-z0-9][-a-z0-9]*\.)+(?:joinmc\.link|playit\.gg|ply\.gg)(?::\d+)?)/i;
   const stripAnsi = s => s.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').replace(/[\x00-\x09\x0b-\x1f\x7f]/g, '');
+  const isReadable = s => /^\s*[\[(\w]/.test(s) && (s.includes('[') || s.includes('playit') || s.includes('tunnel') || s.includes('agent') || s.includes('error') || s.includes('warn') || s.includes('info') || s.includes('connect') || s.includes('start') || s.includes('stop'));
   const handleData = data => {
     for (const rawLine of data.toString('utf8').split('\n')) {
       const line = stripAnsi(rawLine).replace(/\r/, '').trim();
       if (!line) continue;
-      send('playit:line', { text: line });
       const m = line.match(ADDR_RE);
       if (m) { playitAddress = m[1]; send('playit:address', { address: playitAddress }); }
+      if (isReadable(line)) send('playit:line', { text: line });
     }
   };
   playitProcess.stdout.on('data', handleData);
@@ -398,52 +333,6 @@ function startPlayit() {
   return { ok: true };
 }
 
-function startCustomTunnel(id, execPath, args, postCmd) {
-  if (customTunnelProcesses.has(id)) return { ok: false, error: 'Already running' };
-  if (!fs.existsSync(execPath)) return { ok: false, error: `Executable not found: ${execPath}` };
-  try {
-    const argArr = args ? args.trim().split(/\s+/).filter(Boolean) : [];
-    const cwd = path.dirname(execPath);
-    const proc = spawn(execPath, argArr, { cwd, stdio: ['pipe','pipe','pipe'], windowsHide: false });
-    customTunnelProcesses.set(id, proc);
-    const stripAnsi = s => s.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').replace(/[\x00-\x09\x0b-\x1f\x7f]/g, '');
-    const handleData = data => {
-      for (const rawLine of data.toString('utf8').split('\n')) {
-        const line = stripAnsi(rawLine).replace(/\r/, '').trim();
-        if (line) send('tunnel:output', { id, text: line });
-      }
-    };
-    proc.stdout.on('data', handleData);
-    proc.stderr.on('data', handleData);
-    proc.on('exit', code => {
-      customTunnelProcesses.delete(id);
-      send('tunnel:state', { id, running: false });
-      send('tunnel:output', { id, text: `[Exited with code ${code}]` });
-    });
-    proc.on('error', e => {
-      customTunnelProcesses.delete(id);
-      send('tunnel:state', { id, running: false });
-      send('tunnel:output', { id, text: `[Error: ${e.message}]` });
-    });
-    send('tunnel:state', { id, running: true });
-
-    
-    if (postCmd && postCmd.trim()) {
-      setTimeout(() => {
-        send('tunnel:output', { id, text: `[PostCmd] Running: ${postCmd.trim()}` });
-        exec(postCmd.trim(), { cwd, windowsHide: true }, (err, stdout, stderr) => {
-          if (err) send('tunnel:output', { id, text: `[PostCmd Error] ${err.message}` });
-          else send('tunnel:output', { id, text: `[PostCmd] Done` });
-        });
-      }, 2000);
-    }
-
-    return { ok: true };
-  } catch (e) { return { ok: false, error: e.message }; }
-}
-
-const EDITABLE_EXTS = new Set(['.properties','.cfg','.conf','.toml','.yml','.yaml','.ini','.txt','.json','.log','.sh','.bat','.cmd','.md','.xml','.js','.ts','.py','.lua','.csv']);
-
 function listDirectory(dirPath) {
   if (!dirPath) return { ok: false, error: 'No path' };
   try {
@@ -454,7 +343,6 @@ function listDirectory(dirPath) {
         size: e.isFile() ? (() => { try { return fs.statSync(path.join(dirPath, e.name)).size; } catch { return 0; } })() : 0,
         ext:  e.isFile() ? path.extname(e.name).toLowerCase() : '',
         modified: (() => { try { return fs.statSync(path.join(dirPath, e.name)).mtime.getTime(); } catch { return 0; } })(),
-        editable: e.isFile() ? EDITABLE_EXTS.has(path.extname(e.name).toLowerCase()) : false,
       })).sort((a, b) => a.isDir !== b.isDir ? (a.isDir ? -1 : 1) : a.name.localeCompare(b.name))
     };
   } catch (e) { return { ok: false, error: e.message }; }
@@ -483,7 +371,6 @@ function scanJars(folder) {
   } catch { return []; }
 }
 
-
 function ensureServersDir() {
   if (!fs.existsSync(SERVERS_DIR)) fs.mkdirSync(SERVERS_DIR, { recursive: true });
 }
@@ -492,7 +379,6 @@ const META_FILE_NAME = '.server-meta.json';
 const META_FILE_LEGACY = '.mcdash-meta.json';
 
 function readServerMeta(folder) {
-  // Try new name first, then legacy name
   for (const name of [META_FILE_NAME, META_FILE_LEGACY]) {
     const f = path.join(folder, name);
     if (fs.existsSync(f)) {
@@ -565,15 +451,6 @@ function downloadFileTo(url, destPath, onProgress) {
   });
 }
 
-async function getVanillaJarUrl(version) {
-  const manifest = await httpsGetJson('https://launchermeta.mojang.com/mc/game/version_manifest_v2.json');
-  const v = manifest.versions.find(x => x.id === version);
-  if (!v) throw new Error(`Vanilla version "${version}" not found`);
-  const vData = await httpsGetJson(v.url);
-  if (!vData.downloads?.server?.url) throw new Error(`No server download for version "${version}"`);
-  return vData.downloads.server.url;
-}
-
 async function getPaperJarInfo(version) {
   const builds = await httpsGetJson(`https://api.papermc.io/v2/projects/paper/versions/${version}/builds`);
   if (!builds.builds?.length) throw new Error(`No Paper builds for ${version}`);
@@ -595,51 +472,17 @@ async function getFabricJarInfo(mcVersion) {
   return { url, jarName };
 }
 
-async function getPurpurJarInfo(version) {
-  const url = `https://api.purpurmc.org/v2/purpur/${version}/latest/download`;
-  const jarName = `purpur-${version}.jar`;
-  return { url, jarName };
-}
-
-async function getForgeInstallerInfo(mcVersion) {
-  const promos = await httpsGetJson('https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json');
-  const recKey = `${mcVersion}-recommended`;
-  const latKey = `${mcVersion}-latest`;
-  const forgeVersion = promos.promos[recKey] || promos.promos[latKey];
-  if (!forgeVersion) throw new Error(`No Forge build found for MC ${mcVersion}. Try a different version.`);
-  const fullVersion = `${mcVersion}-${forgeVersion}`;
-  const url = `https://maven.minecraftforge.net/net/minecraftforge/forge/${fullVersion}/forge-${fullVersion}-installer.jar`;
-  return { url, installerJar: `forge-${fullVersion}-installer.jar`, forgeVersion, fullVersion };
-}
-
 ipcMain.handle('mc:get-versions', async (_, { type }) => {
   try {
     if (type === 'paper') {
       const data = await httpsGetJson('https://api.papermc.io/v2/projects/paper');
       return { ok: true, versions: [...data.versions].reverse() };
-    } else if (type === 'purpur') {
-      const data = await httpsGetJson('https://api.purpurmc.org/v2/purpur');
-      return { ok: true, versions: [...data.versions].reverse() };
     } else if (type === 'fabric') {
       const data = await httpsGetJson('https://meta.fabricmc.net/v2/versions/game');
       const versions = data.filter(v => v.stable).map(v => v.version);
       return { ok: true, versions };
-    } else if (type === 'forge') {
-      const data = await httpsGetJson('https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json');
-      const versions = [...new Set(Object.keys(data.promos)
-        .map(k => k.replace(/-(latest|recommended)$/, ''))
-        .filter(v => /^\d+\.\d+/.test(v))
-      )].sort((a, b) => {
-        const [ma, mi, pa = 0] = a.split('.').map(Number);
-        const [mb, mi2, pb = 0] = b.split('.').map(Number);
-        return mb - ma || mi2 - mi || pb - pa;
-      });
-      return { ok: true, versions };
     } else {
-      // vanilla
-      const data = await httpsGetJson('https://launchermeta.mojang.com/mc/game/version_manifest_v2.json');
-      const versions = data.versions.filter(v => v.type === 'release').map(v => v.id);
-      return { ok: true, versions };
+      return { ok: false, error: `Unknown type: ${type}` };
     }
   } catch (e) {
     return { ok: false, error: e.message };
@@ -663,24 +506,10 @@ ipcMain.handle('servers:create', async (_, { name, type, mcVersion, ram }) => {
     const ramNum = Math.max(1, parseInt(ram, 10) || 2);
     sendProg(5, 'Fetching version information…');
 
-    if (type === 'vanilla') {
-      jarName = 'server.jar';
-      const jarUrl = await getVanillaJarUrl(mcVersion);
-      sendProg(10, `Downloading Vanilla ${mcVersion}…`);
-      await downloadFileTo(jarUrl, path.join(folder, jarName),
-        pct => sendProg(10 + Math.round(pct * 0.85), `Downloading: ${pct}%`));
-
-    } else if (type === 'paper') {
+    if (type === 'paper') {
       const info = await getPaperJarInfo(mcVersion);
       jarName = info.jarName;
       sendProg(10, `Downloading Paper ${mcVersion}…`);
-      await downloadFileTo(info.url, path.join(folder, jarName),
-        pct => sendProg(10 + Math.round(pct * 0.85), `Downloading: ${pct}%`));
-
-    } else if (type === 'purpur') {
-      const info = await getPurpurJarInfo(mcVersion);
-      jarName = info.jarName;
-      sendProg(10, `Downloading Purpur ${mcVersion}…`);
       await downloadFileTo(info.url, path.join(folder, jarName),
         pct => sendProg(10 + Math.round(pct * 0.85), `Downloading: ${pct}%`));
 
@@ -691,76 +520,6 @@ ipcMain.handle('servers:create', async (_, { name, type, mcVersion, ram }) => {
       await downloadFileTo(info.url, path.join(folder, jarName),
         pct => sendProg(10 + Math.round(pct * 0.85), `Downloading: ${pct}%`));
 
-    } else if (type === 'forge') {
-      sendProg(8, `Finding Forge for MC ${mcVersion}…`);
-      const info = await getForgeInstallerInfo(mcVersion);
-      const installerPath = path.join(folder, info.installerJar);
-      sendProg(12, 'Downloading Forge installer…');
-      await downloadFileTo(info.url, installerPath,
-        pct => sendProg(12 + Math.round(pct * 0.38), `Downloading installer: ${pct}%`));
-
-      const FORGE_LIB_CACHE = path.join(app.getPath('userData'), 'forge-lib-cache');
-      const destLibs = path.join(folder, 'libraries');
-      if (fs.existsSync(FORGE_LIB_CACHE)) {
-        try {
-          sendProg(52, 'Copying cached Forge libraries (this will be fast)…');
-          fs.cpSync(FORGE_LIB_CACHE, destLibs, { recursive: true });
-          send('create:log', { msg: '[Cache] Pre-seeded libraries from cache — install will be much faster.' });
-        } catch (e) {
-          send('create:log', { msg: `[Cache] Could not use library cache: ${e.message}` });
-        }
-      } else {
-        sendProg(52, 'Running Forge installer (first install — downloading libraries, please wait)…');
-      }
-
-      sendProg(52, 'Running Forge installer…');
-      await new Promise((resolve, reject) => {
-
-        const proc = spawn('java', [
-            '-Djava.net.preferIPv4Stack=true',
-            '-Dmaven.artifact.threads=8',
-            '-jar', info.installerJar, '--installServer'
-          ],
-          { cwd: folder, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
-        proc.stdout.on('data', d => send('create:log', { msg: d.toString().trim() }));
-        proc.stderr.on('data', d => send('create:log', { msg: d.toString().trim() }));
-        proc.on('exit', code => (code === 0 ? resolve() : reject(new Error(`Forge installer exited with code ${code}`))));
-        proc.on('error', reject);
-      });
-
-      if (fs.existsSync(destLibs)) {
-        try {
-          if (!fs.existsSync(FORGE_LIB_CACHE)) fs.mkdirSync(FORGE_LIB_CACHE, { recursive: true });
-          const copyNewOnly = (src, dest) => {
-            for (const e of fs.readdirSync(src, { withFileTypes: true })) {
-              const sp = path.join(src, e.name), dp = path.join(dest, e.name);
-              if (e.isDirectory()) { if (!fs.existsSync(dp)) fs.mkdirSync(dp, { recursive: true }); copyNewOnly(sp, dp); }
-              else if (!fs.existsSync(dp)) fs.copyFileSync(sp, dp);
-            }
-          };
-          copyNewOnly(destLibs, FORGE_LIB_CACHE);
-          send('create:log', { msg: '[Cache] Forge libraries saved to cache for future installs.' });
-        } catch (_) {}
-      }
-
-      try { fs.unlinkSync(installerPath); } catch {}
-      sendProg(90, 'Finalizing Forge setup…');
-      const runBat = path.join(folder, 'run.bat');
-      const runSh  = path.join(folder, 'run.sh');
-      if (fs.existsSync(runBat) || fs.existsSync(runSh)) {
-        jarName = null; 
-        const jvmArgsFile = path.join(folder, 'user_jvm_args.txt');
-        if (fs.existsSync(jvmArgsFile)) {
-          let content = fs.readFileSync(jvmArgsFile, 'utf8');
-          content = content.replace(/-Xmx\S+/g, `-Xmx${ramNum}G`).replace(/-Xms\S+/g, `-Xms${Math.max(1, Math.floor(ramNum / 2))}G`);
-          fs.writeFileSync(jvmArgsFile, content);
-        }
-      } else {
-        const jars = fs.readdirSync(folder).filter(f => f.startsWith('forge-') && f.endsWith('.jar') && !f.includes('-installer'));
-        if (!jars.length) throw new Error('Could not find Forge server jar after installation');
-        jarName = jars[0];
-      }
-
     } else {
       throw new Error(`Unknown server type: ${type}`);
     }
@@ -769,19 +528,16 @@ ipcMain.handle('servers:create', async (_, { name, type, mcVersion, ram }) => {
     fs.writeFileSync(path.join(folder, 'eula.txt'),
       '#By changing the setting below to TRUE you are indicating your agreement to our EULA\neula=true\n');
 
-    const meta = { name, type, mcVersion, jar: jarName, useRunScript: !jarName, created: new Date().toISOString() };
+    const meta = { name, type, mcVersion, jar: jarName, created: new Date().toISOString() };
     writeServerMeta(folder, meta);
 
-    const configJar = jarName || 'server.jar';
     const newConfig = {
       serverFolder: folder,
-      serverJar: configJar,
+      serverJar: jarName,
       javaArgs: `-Xmx${ramNum}G -Xms${Math.max(1, Math.floor(ramNum / 2))}G`,
       serverName: name,
       serverType: type,
       mcVersion,
-      useRunScript: !jarName,
-      customTunnels: (serverConfig || {}).customTunnels || [],
     };
     serverFolder = folder;
     serverConfig = newConfig;
@@ -872,7 +628,6 @@ ipcMain.handle('servers:import', async (_, { sourceFolder, name, jar, ram }) => 
       serverName: name,
       serverType: detectedType,
       mcVersion: detectedVersion,
-      customTunnels: (serverConfig || {}).customTunnels || [],
     };
     serverFolder = destFolder;
     serverConfig = newConfig;
@@ -933,13 +688,11 @@ ipcMain.handle('servers:switch', (_, { folder }) => {
     serverType: meta.type,
     mcVersion: meta.mcVersion,
     useRunScript: meta.useRunScript || false,
-    customTunnels: existing.customTunnels || [],
   };
   serverFolder = folder; serverConfig = newConfig; saveConfig(newConfig);
   _diskCache = { world: 0, ts: 0 };
   return { ok: true, config: newConfig };
 });
-
 
 ipcMain.handle('app:get-state', async () => {
   const cfg = loadConfig();
@@ -950,7 +703,6 @@ ipcMain.handle('app:get-state', async () => {
   serverFolder = cfg.serverFolder;
   serverConfig = cfg;
 
-  
   if (!serverConfig.playitPath) {
     const playitNames = ['playit.exe', 'playit_gg.exe', 'playit'];
     const found = playitNames.map(n => path.join(serverFolder, n)).find(p => fs.existsSync(p));
@@ -960,20 +712,16 @@ ipcMain.handle('app:get-state', async () => {
     }
   }
 
-  
   const runtime = loadRuntime();
   if (runtime && runtime.pid) {
     const alive = await isPidAliveJava(runtime.pid);
     if (alive) {
-      
       detachedPid = runtime.pid;
       serverState = 'running';
       serverStartTime = runtime.startTime || (Date.now() - 60000);
-      resetCpuState();
       startStatsPolling();
       return { configured: true, serverFolder, config: cfg, serverRunning: true, detachedPid: runtime.pid, servers: listManagedServers() };
     } else {
-      
       clearRuntime();
     }
   }
@@ -1057,7 +805,7 @@ ipcMain.handle('server:get-state', () => ({ state: serverState, players: Array.f
 ipcMain.handle('console:send',     (_, cmd) => sendCommand(cmd));
 ipcMain.handle('players:get',      ()      => Array.from(onlinePlayers.values()));
 ipcMain.handle('player:action',    (_, {player, action}) => {
-  const cmds = { kick:`kick ${player} Kicked by operator`, ban:`ban ${player} Banned by operator`, op:`op ${player}`, deop:`deop ${player}`, pardon:`pardon ${player}` };
+  const cmds = { op:`op ${player}`, deop:`deop ${player}`, pardon:`pardon ${player}` };
   return sendCommand(cmds[action] || `${action} ${player}`);
 });
 
@@ -1084,7 +832,7 @@ ipcMain.handle('config:update-ram', (_, { maxRam }) => {
   return { ok: true, javaArgs: serverConfig.javaArgs };
 });
 ipcMain.handle('stats:get-disk', async () => ({ bytes: await getDiskUsage(serverFolder) }));
-ipcMain.handle('config:get', () => ({ javaArgs: serverConfig.javaArgs || '-Xmx2G -Xms1G', serverFolder, serverJar: serverConfig.serverJar, playitPath: serverConfig.playitPath || '', serverType: serverConfig.serverType || '', mcVersion: serverConfig.mcVersion || '', serverName: serverConfig.serverName || '', curseforgeApiKey: serverConfig.curseforgeApiKey || '' }));
+ipcMain.handle('config:get', () => ({ javaArgs: serverConfig.javaArgs || '-Xmx2G -Xms1G', serverFolder, serverJar: serverConfig.serverJar, playitPath: serverConfig.playitPath || '', serverType: serverConfig.serverType || '', mcVersion: serverConfig.mcVersion || '', serverName: serverConfig.serverName || '' }));
 ipcMain.handle('playit:get-status', ()  => ({ running: !!playitProcess, address: playitAddress }));
 ipcMain.handle('playit:start',      ()  => startPlayit());
 ipcMain.handle('playit:stop',       ()  => { if (playitProcess) { try { playitProcess.kill(); } catch (_) {} playitProcess = null; playitAddress = null; } send('playit:state', { running: false }); return { ok: true }; });
@@ -1099,28 +847,6 @@ ipcMain.handle('playit:save-path', (_, p) => {
   serverConfig.playitPath = p; saveConfig(serverConfig); return { ok: true };
 });
 
-ipcMain.handle('tunnel:list', () => {
-  const cfg = loadConfig();
-  return { ok: true, tunnels: cfg?.customTunnels || [] };
-});
-ipcMain.handle('tunnel:save-all', (_, tunnels) => {
-  serverConfig.customTunnels = tunnels; saveConfig(serverConfig); return { ok: true };
-});
-ipcMain.handle('tunnel:start', (_, { id, execPath, args, postCmd }) => startCustomTunnel(id, execPath, args, postCmd));
-ipcMain.handle('tunnel:stop',  (_, { id }) => {
-  const proc = customTunnelProcesses.get(id);
-  if (proc) { try { proc.kill(); } catch (_) {} customTunnelProcesses.delete(id); }
-  send('tunnel:state', { id, running: false }); return { ok: true };
-});
-ipcMain.handle('tunnel:browse-exe', async () => {
-  const r = await dialog.showOpenDialog(mainWindow, { title: 'Select Tunnel Executable', properties: ['openFile'] });
-  if (r.canceled || !r.filePaths.length) return { ok: false };
-  return { ok: true, path: r.filePaths[0] };
-});
-ipcMain.handle('tunnel:running-ids', () => ({ ids: Array.from(customTunnelProcesses.keys()) }));
-
-ipcMain.handle('files:read',  (_, p)             => { try { return { ok: true, content: fs.readFileSync(p, 'utf8') }; } catch (e) { return { ok: false, error: e.message }; } });
-ipcMain.handle('files:write', (_, { path: p, content }) => { try { fs.writeFileSync(p, content, 'utf8'); return { ok: true }; } catch (e) { return { ok: false, error: e.message }; } });
 ipcMain.handle('files:list',              (_, d) => listDirectory(d || serverFolder));
 ipcMain.handle('files:open',              (_, p) => { shell.openPath(p); return { ok: true }; });
 ipcMain.handle('files:show-in-explorer',  (_, p) => { shell.showItemInFolder(p); return { ok: true }; });
@@ -1128,29 +854,6 @@ ipcMain.handle('files:get-server-folder', ()     => serverFolder);
 ipcMain.handle('window:minimize',         ()     => mainWindow?.minimize());
 ipcMain.handle('window:close',            ()     => app.quit());
 ipcMain.handle('window:toggle-maximize',  ()     => mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow?.maximize());
-
-
-ipcMain.handle('mods:download-url', async (_, { url, filename }) => {
-  if (!serverFolder) return { ok: false, error: 'No server folder configured' };
-  const info = listMods(serverFolder);
-  const dest = info.path;
-  if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-  const safeName = path.basename(filename).replace(/[/\\:*?"<>|]/g, '_');
-  const destPath = path.join(dest, safeName);
-  try {
-    await downloadFileTo(url, destPath, pct => send('download:progress', { filename: safeName, pct }));
-    return { ok: true, path: destPath };
-  } catch (e) {
-    try { if (fs.existsSync(destPath)) fs.unlinkSync(destPath); } catch {}
-    return { ok: false, error: e.message };
-  }
-});
-
-ipcMain.handle('config:save-settings', (_, settings) => {
-  if (settings.curseforgeApiKey !== undefined) serverConfig.curseforgeApiKey = settings.curseforgeApiKey;
-  saveConfig(serverConfig);
-  return { ok: true };
-});
 
 let forceQuit = false;
 
@@ -1163,13 +866,12 @@ function createWindow() {
   });
   mainWindow.loadFile('index.html');
 
-  
   mainWindow.on('close', async (e) => {
-    if (forceQuit) return; 
+    if (forceQuit) return;
     const running = serverProcess || (detachedPid && serverState === 'running');
-    if (!running) return; 
+    if (!running) return;
 
-    e.preventDefault(); 
+    e.preventDefault();
     const { response } = await dialog.showMessageBox(mainWindow, {
       type: 'question',
       title: 'Server is running',
@@ -1200,19 +902,14 @@ function createWindow() {
         forceQuit = true; app.quit();
       }
     } else if (response === 1) {
-      
-      
       forceQuit = true;
       app.quit();
     }
-    
   });
 }
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => {
-  
   if (playitProcess) { try { playitProcess.kill(); } catch (_) {} }
-  for (const proc of customTunnelProcesses.values()) { try { proc.kill(); } catch (_) {} }
   if (process.platform !== 'darwin') app.quit();
 });
 app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
